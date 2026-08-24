@@ -10,8 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource-variable/instrument-sans": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@tailwindcss/vite": "^4.3.3",
     "@wailsio/runtime": "latest",
-    "solid-js": "^1.9.15"
+    "solid-js": "^1.9.15",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "typescript": "^5.2.2",

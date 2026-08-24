@@ -36,7 +36,7 @@ func main() {
 	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
 		Name:        "vectile",
-		Description: "A demo of using raw HTML & CSS",
+		Description: "A local, private search across everything you've written, read, and kept.",
 		Services: []application.Service{
 			application.NewService(&GreetService{}),
 		},
@@ -54,16 +54,17 @@ func main() {
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "Window 1",
-		// Window sized to the golden ratio (1000 / 618 ≈ 1.618).
-		Width:  1000,
-		Height: 618,
+		Title:     "vectile",
+		Width:     1180,
+		Height:    760,
+		MinWidth:  900,
+		MinHeight: 600,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},
-		BackgroundColour: application.NewRGB(6, 7, 15),
+		BackgroundColour: application.NewRGB(251, 252, 255),
 		URL:              "/",
 	})
 

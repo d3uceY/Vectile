@@ -1,0 +1,196 @@
+/* ============================================================
+   vectile — design tokens + base styles
+   World: "field notebook / index-card library"
+   Bright paper ground, graph-paper dot + grid, one friendly
+   green accent, mono data labels, serif-italic margin notes.
+   ============================================================ */
+
+/* Self-hosted type (a desktop app must never hit a CDN at runtime) */
+@import "@fontsource-variable/instrument-sans";
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+@import "tailwindcss";
+
+@theme {
+  /* Type voices */
+  --font-sans: "Instrument Sans Variable", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Paper + ink */
+  --color-paper: #fbfcff;
+  --color-paper-warm: #fdfcf7;
+  --color-surface: #f5f8f5;
+  --color-ink: #1b2226;
+  --color-ink-soft: #39434b;
+  --color-muted: #56616b;
+  --color-faint: #66707a; /* ≥4.5:1 on paper */
+  --color-line: #e4e8ec;
+  --color-line-strong: #d1d8de;
+
+  /* The one accent: friendly leaf green */
+  --color-mint: #e5f6ec;
+  --color-mint-strong: #c9eed8;
+  --color-mint-deep: #a7e2bf;
+  --color-leaf: #1f8a50;
+  --color-leaf-deep: #177340;
+  --color-leaf-soft: #45a06b;
+
+  /* Warm note for matched search terms */
+  --color-highlighter: #fff1a8;
+  --color-highlighter-deep: #f2dc6a;
+
+  /* Functional */
+  --color-danger: #c13b2f;
+  --color-danger-soft: #fbeae8;
+
+  /* Radius */
+  --radius-card: 14px;
+  --radius-control: 10px;
+
+  /* Shadows — offset + blur only, no zero-offset halos */
+  --shadow-card: 0 1px 2px rgb(27 34 38 / 0.05), 0 14px 30px -18px rgb(27 34 38 / 0.16);
+  --shadow-pop: 0 2px 6px rgb(27 34 38 / 0.06), 0 22px 44px -22px rgb(27 34 38 / 0.22);
+
+  /* Motion */
+  --ease-snappy: cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+
+@layer base {
+  /* Hairline borders everywhere by default: one line, flat, minimal */
+  * {
+    border-color: var(--color-line);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow: hidden; /* the app shell owns scrolling, not the page */
+    font-feature-settings: "ss01" on, "cv01" on;
+  }
+
+  /* App chrome is not a document: nothing selects by default, text
+     inputs opt back in. */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input,
+  textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  ::selection {
+    background: var(--color-mint-strong);
+    color: var(--color-ink);
+  }
+
+  button {
+    cursor: pointer;
+    font: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-leaf);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* The margin-note voice: serif italic for asides and empty states */
+  .note {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: 0.005em;
+  }
+
+  /* Mono data line: paths, scores, counts */
+  .data {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+
+  /* Paper card with a hairline border */
+  .sheet {
+    background-color: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+  }
+
+  /* Staggered entrance for result lists (one authored motion moment) */
+  .enter-stagger > * {
+    opacity: 0;
+    transform: translateY(4px);
+    animation: rise-in 220ms var(--ease-snappy) forwards;
+  }
+  @keyframes rise-in {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Soft pulsing dot for the live model indicator */
+  .pulse-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 9999px;
+    border: 1.5px solid var(--color-leaf-soft);
+    animation: ping-soft 2.2s var(--ease-snappy) infinite;
+  }
+  @keyframes ping-soft {
+    0% {
+      transform: scale(0.7);
+      opacity: 0.8;
+    }
+    70%,
+    100% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
+  }
+
+  /* Thin, quiet scrollbars */
+  .scroll-quiet {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+  .scroll-quiet::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scroll-quiet::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+    border-radius: 9999px;
+    border: 3px solid var(--color-paper);
+  }
+}
