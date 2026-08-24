@@ -54,7 +54,7 @@ One authored moment: result lists stagger in (fade + 4px rise, 220ms, snappy eas
 
 ## Layout
 
-- Left sidebar (224px, hairline right border): wordmark "vectile" + a green dot, serif tagline "your private library", five nav items, model-engine status pill in the footer.
+- Left sidebar (224px, hairline right border): a title plate — logo in a hairline bookplate + "vectile" in the serif voice, serif-italic tagline "your private library" — then five nav items as filing-cabinet index tabs (the active view is a mint square-cornered tab pulled 5px past the spine), and a cardstock colophon plate in the footer carrying the model state, model name, and a serif-italic "nothing leaves this machine" note.
 - Top status strip: "all local" + library summary (collections · chunks · size) left; Jump-to-search with ⌘K right.
 - Main: max-width 980px column, 32px gutters, per-view scroll.
 - Dot pattern (20px grid, ~10% ink, 1.25px dots) is the app-wide ground — visible but quiet; grid pattern (34–40px, ~7% leaf) is the "blueprint" surface for Browse, Library, and empty states.
