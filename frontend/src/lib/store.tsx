@@ -73,7 +73,14 @@ export function createAppStore() {
   };
   const dismissToast = (id: number) => setToasts((t) => t.filter((x) => x.id !== id));
 
+  // Guard against out-of-order responses: embeddings are slow, so a query
+  // the user typed earlier can still be resolving after they've moved on.
+  // Each search claims the next sequence number; only the newest one may
+  // write results or flip the state back to "done".
+  let searchSeq = 0;
+
   const runSearch = async (q: string, f: SearchFilters = filters()) => {
+    const seq = ++searchSeq;
     setQuery(q);
     setFilters(f);
     if (!q.trim()) {
@@ -83,16 +90,22 @@ export function createAppStore() {
     }
     setSearchState("searching");
     try {
-      setResults(await api.search(q, f));
+      const res = await api.search(q, f);
+      if (seq !== searchSeq) return; // superseded by a newer query — drop it
+      setResults(res);
     } catch (err) {
+      if (seq !== searchSeq) return;
       setResults([]);
       pushToast(`Search failed: ${err}`, "danger");
     } finally {
-      setSearchState("done");
+      // Only the newest search turns the spinner off, so a slow older
+      // embedding can't clear the "searching" state for the query on screen.
+      if (seq === searchSeq) setSearchState("done");
     }
   };
 
   const clearSearch = () => {
+    searchSeq++; // invalidate any in-flight search
     setQuery("");
     setFilters(defaultFilters());
     setResults([]);

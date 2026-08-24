@@ -5,6 +5,60 @@ import type { AppConfig, GUIConfig, SearchDefaults } from "../../lib/types";
 import { Button, InfoTip, StatusPill, Toggle, ViewHeading } from "../ui/primitives";
 import { CloseIcon, FolderOpenIcon } from "../ui/icons";
 
+/* ---- hard bounds for numeric settings ----
+   Every numeric field is clamped to these ranges on load and on change, and
+   the <input>s carry min/max/step so spinners and native validation agree.
+   The bounds reflect what the backend can actually use:
+
+   - embedding_batch_size  : <1 would mean "no batching"; the indexer treats
+     anything below 1 as 1 anyway.
+   - chunk_size_tokens     : must be >= 1 or the window splitter never
+     advances (infinite loop); above ~1500 words a chunk overflows the
+     model's 2048-token context (backend/embeddings) and gets truncated.
+   - chunk_overlap_tokens  : must stay strictly below chunk_size or the window
+     splitter walks backwards into a negative slice bound (panic). 0 = none.
+   - git_history_in_months : whole months; <1 runs `git log --since=0 months
+     ago`, which is meaningless.
+   - top_k / rrf_k         : RRF's denominator is (k + rank + 1) so it must
+     stay positive; the vector candidate pool saturates around 200.
+   - vector/fts weight     : blend weights live in [0, 1].
+   - auto_reindex_interval : the backend clamps <1min to 1min already; 0
+     would mean "re-index every tick". */
+const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max);
+
+type NumBounds = { min: number; max: number; step: number };
+
+const STATIC_BOUNDS: Record<
+  | "embedding_batch_size"
+  | "chunk_size_tokens"
+  | "chunk_overlap_tokens"
+  | "git_history_in_months"
+  | "top_k"
+  | "rrf_k"
+  | "vector_weight"
+  | "fts_weight"
+  | "auto_reindex_interval_minutes",
+  NumBounds
+> = {
+  embedding_batch_size: { min: 1, max: 512, step: 1 },
+  chunk_size_tokens: { min: 50, max: 1500, step: 10 },
+  chunk_overlap_tokens: { min: 0, max: 0, step: 5 }, // max is dynamic: chunk_size - 1
+  git_history_in_months: { min: 1, max: 240, step: 1 },
+  top_k: { min: 1, max: 200, step: 1 },
+  rrf_k: { min: 1, max: 200, step: 1 },
+  vector_weight: { min: 0, max: 1, step: 0.05 },
+  fts_weight: { min: 0, max: 1, step: 0.05 },
+  auto_reindex_interval_minutes: { min: 1, max: 10080, step: 1 },
+};
+
+/** Effective bounds for a key; chunk overlap's max tracks the current chunk size. */
+function boundsFor(key: keyof typeof STATIC_BOUNDS, chunkSize: number): NumBounds {
+  const b = STATIC_BOUNDS[key];
+  return key === "chunk_overlap_tokens"
+    ? { ...b, max: Math.max(b.min, chunkSize - 1) }
+    : b;
+}
+
 /* ---- small building blocks ---- */
 
 function Section(props: { title: string; note?: string; children: JSX.Element }) {
@@ -22,6 +76,9 @@ function NumField(props: {
   value: number;
   onChange: (n: number) => void;
   hint?: string;
+  min?: number;
+  max?: number;
+  step?: number;
 }) {
   const uid = createUniqueId();
   return (
@@ -36,6 +93,9 @@ function NumField(props: {
         id={uid}
         type="number"
         value={props.value}
+        min={props.min}
+        max={props.max}
+        step={props.step}
         onInput={(e) => props.onChange(Number(e.currentTarget.value))}
         class="h-8 w-24 rounded-control border border-line bg-paper px-2 text-right text-[13px] outline-none focus:border-leaf"
       />
@@ -181,21 +241,79 @@ const cloneCfg = (c: AppConfig): AppConfig => ({
   gui: { ...c.gui },
 });
 
+/** Clamp a freshly loaded config into the hard bounds so out-of-range values
+    saved by an older version or a hand-edited file get corrected on open. */
+const sanitizeConfig = (cfg: AppConfig): AppConfig => {
+  cfg.embedding_batch_size = clamp(
+    cfg.embedding_batch_size,
+    STATIC_BOUNDS.embedding_batch_size.min,
+    STATIC_BOUNDS.embedding_batch_size.max,
+  );
+  cfg.chunk_size_tokens = clamp(
+    cfg.chunk_size_tokens,
+    STATIC_BOUNDS.chunk_size_tokens.min,
+    STATIC_BOUNDS.chunk_size_tokens.max,
+  );
+  cfg.chunk_overlap_tokens = clamp(
+    cfg.chunk_overlap_tokens,
+    STATIC_BOUNDS.chunk_overlap_tokens.min,
+    Math.max(STATIC_BOUNDS.chunk_overlap_tokens.min, cfg.chunk_size_tokens - 1),
+  );
+  cfg.git_history_in_months = clamp(
+    cfg.git_history_in_months,
+    STATIC_BOUNDS.git_history_in_months.min,
+    STATIC_BOUNDS.git_history_in_months.max,
+  );
+  cfg.search_defaults.top_k = clamp(cfg.search_defaults.top_k, STATIC_BOUNDS.top_k.min, STATIC_BOUNDS.top_k.max);
+  cfg.search_defaults.rrf_k = clamp(cfg.search_defaults.rrf_k, STATIC_BOUNDS.rrf_k.min, STATIC_BOUNDS.rrf_k.max);
+  cfg.search_defaults.vector_weight = clamp(
+    cfg.search_defaults.vector_weight,
+    STATIC_BOUNDS.vector_weight.min,
+    STATIC_BOUNDS.vector_weight.max,
+  );
+  cfg.search_defaults.fts_weight = clamp(
+    cfg.search_defaults.fts_weight,
+    STATIC_BOUNDS.fts_weight.min,
+    STATIC_BOUNDS.fts_weight.max,
+  );
+  cfg.gui.auto_reindex_interval_minutes = clamp(
+    cfg.gui.auto_reindex_interval_minutes,
+    STATIC_BOUNDS.auto_reindex_interval_minutes.min,
+    STATIC_BOUNDS.auto_reindex_interval_minutes.max,
+  );
+  return cfg;
+};
+
 export function SettingsView() {
   const store = useAppStore();
   const [draft, setDraft] = createSignal<AppConfig | null>(null);
 
-  // Initialize the draft once from the loaded config.
+  // Initialize the draft once from the loaded config, clamping any out-of-range
+  // values a hand-edited config.json may have carried.
   createEffect(() => {
     const c = store.config();
-    if (c && !draft()) setDraft(cloneCfg(c));
+    if (c && !draft()) setDraft(sanitizeConfig(cloneCfg(c)));
   });
 
-  const patch = (p: Partial<AppConfig>) => setDraft((d) => (d ? { ...d, ...p } : d));
   const setNumber = (
     k: "embedding_batch_size" | "chunk_size_tokens" | "chunk_overlap_tokens" | "git_history_in_months",
     n: number,
-  ) => patch({ [k]: n } as Partial<AppConfig>);
+  ) =>
+    setDraft((d) => {
+      if (!d) return d;
+      if (k === "chunk_size_tokens") {
+        // Shrinking the chunk size must pull overlap back below it.
+        const size = clamp(n, STATIC_BOUNDS.chunk_size_tokens.min, STATIC_BOUNDS.chunk_size_tokens.max);
+        const overlap = clamp(
+          d.chunk_overlap_tokens,
+          STATIC_BOUNDS.chunk_overlap_tokens.min,
+          Math.max(STATIC_BOUNDS.chunk_overlap_tokens.min, size - 1),
+        );
+        return { ...d, chunk_size_tokens: size, chunk_overlap_tokens: overlap };
+      }
+      const b = boundsFor(k, d.chunk_size_tokens);
+      return { ...d, [k]: clamp(n, b.min, b.max) };
+    });
 
   const addPath = (k: "obsidian_vaults" | "obsidian_exclude_folders" | "calibre_libraries", v: string) =>
     setDraft((d) => (d ? { ...d, [k]: [...d[k], v] } : d));
@@ -223,9 +341,21 @@ export function SettingsView() {
     });
 
   const setSearch = (k: keyof SearchDefaults, n: number) =>
-    setDraft((d) => (d ? { ...d, search_defaults: { ...d.search_defaults, [k]: n } } : d));
+    setDraft((d) => {
+      if (!d) return d;
+      const b = STATIC_BOUNDS[k];
+      return { ...d, search_defaults: { ...d.search_defaults, [k]: clamp(n, b.min, b.max) } };
+    });
   const setGui = (p: Partial<GUIConfig>) =>
-    setDraft((d) => (d ? { ...d, gui: { ...d.gui, ...p } } : d));
+    setDraft((d) => {
+      if (!d) return d;
+      const gui = { ...d.gui, ...p };
+      if (p.auto_reindex_interval_minutes !== undefined) {
+        const b = STATIC_BOUNDS.auto_reindex_interval_minutes;
+        gui.auto_reindex_interval_minutes = clamp(p.auto_reindex_interval_minutes, b.min, b.max);
+      }
+      return { ...d, gui };
+    });
 
   const save = async () => {
     const d = draft();
@@ -252,6 +382,9 @@ export function SettingsView() {
               value={draft()!.embedding_batch_size}
               onChange={(n) => setNumber("embedding_batch_size", n)}
               hint="How many chunks get fed to the model at once. A bigger number finishes indexing faster but uses more memory while it runs. If a large library makes the app stall, drop it to something like 16."
+              min={STATIC_BOUNDS.embedding_batch_size.min}
+              max={STATIC_BOUNDS.embedding_batch_size.max}
+              step={STATIC_BOUNDS.embedding_batch_size.step}
             />
           </Section>
 
@@ -261,12 +394,18 @@ export function SettingsView() {
               value={draft()!.chunk_size_tokens}
               onChange={(n) => setNumber("chunk_size_tokens", n)}
               hint="How many words each indexed slice of a document holds. Search matches against these slices, not whole files, so this sets how finely results are cut. Small chunks answer narrowly, big ones carry more surrounding context. 500 is a safe starting point."
+              min={STATIC_BOUNDS.chunk_size_tokens.min}
+              max={STATIC_BOUNDS.chunk_size_tokens.max}
+              step={STATIC_BOUNDS.chunk_size_tokens.step}
             />
             <NumField
               label="Chunk overlap (words)"
               value={draft()!.chunk_overlap_tokens}
               onChange={(n) => setNumber("chunk_overlap_tokens", n)}
               hint="How many words repeat from one slice into the next. The repeat keeps sentences and ideas that straddle a cut from being split in half, so they still search whole. Too little overlap and things slip through; too much and the same text gets stored twice. 50 is the usual starting point."
+              min={STATIC_BOUNDS.chunk_overlap_tokens.min}
+              max={Math.max(STATIC_BOUNDS.chunk_overlap_tokens.min, draft()!.chunk_size_tokens - 1)}
+              step={STATIC_BOUNDS.chunk_overlap_tokens.step}
             />
           </Section>
 
@@ -276,24 +415,36 @@ export function SettingsView() {
               value={draft()!.search_defaults.top_k}
               onChange={(n) => setSearch("top_k", n)}
               hint="How many matches a search returns by default. Raise it to see more of the pile, lower it to keep the list short. You can still ask for a different number on any individual search."
+              min={STATIC_BOUNDS.top_k.min}
+              max={STATIC_BOUNDS.top_k.max}
+              step={STATIC_BOUNDS.top_k.step}
             />
             <NumField
               label="RRF constant (k)"
               value={draft()!.search_defaults.rrf_k}
               onChange={(n) => setSearch("rrf_k", n)}
               hint="A smoothing value in the math that merges the two search lists. Bigger k flattens the gap between high and low ranked matches, so entries further down the list still get a fair shot. 60 is the standard value for this kind of search."
+              min={STATIC_BOUNDS.rrf_k.min}
+              max={STATIC_BOUNDS.rrf_k.max}
+              step={STATIC_BOUNDS.rrf_k.step}
             />
             <NumField
               label="Vector weight"
               value={draft()!.search_defaults.vector_weight}
               onChange={(n) => setSearch("vector_weight", n)}
               hint="How much the meaning-based ranking counts when the two search lists are blended. It works against the full-text weight like a seesaw: raise it and results lean toward semantic matches, even when the words don't line up exactly."
+              min={STATIC_BOUNDS.vector_weight.min}
+              max={STATIC_BOUNDS.vector_weight.max}
+              step={STATIC_BOUNDS.vector_weight.step}
             />
             <NumField
               label="Full-text weight"
               value={draft()!.search_defaults.fts_weight}
               onChange={(n) => setSearch("fts_weight", n)}
               hint="How much exact-word matches count in the final blend. Raise it when you're hunting a precise phrase or a name and want literal hits to win. Lower it and meaning takes over from wording."
+              min={STATIC_BOUNDS.fts_weight.min}
+              max={STATIC_BOUNDS.fts_weight.max}
+              step={STATIC_BOUNDS.fts_weight.step}
             />
           </Section>
 
@@ -374,6 +525,9 @@ export function SettingsView() {
               value={draft()!.git_history_in_months}
               onChange={(n) => setNumber("git_history_in_months", n)}
               hint="How many months of git history get indexed for a repository. Each commit becomes a searchable document, so this controls how far back you can dig through your changelog. 6 months is the default."
+              min={STATIC_BOUNDS.git_history_in_months.min}
+              max={STATIC_BOUNDS.git_history_in_months.max}
+              step={STATIC_BOUNDS.git_history_in_months.step}
             />
             <Toggle
               checked={draft()!.gui.auto_reindex}
@@ -388,6 +542,9 @@ export function SettingsView() {
                 value={draft()!.gui.auto_reindex_interval_minutes}
                 onChange={(n) => setGui({ auto_reindex_interval_minutes: n })}
                 hint="How often the auto-reindex timer fires. 60 means once an hour. Only matters when Auto-reindex is switched on."
+                min={STATIC_BOUNDS.auto_reindex_interval_minutes.min}
+                max={STATIC_BOUNDS.auto_reindex_interval_minutes.max}
+                step={STATIC_BOUNDS.auto_reindex_interval_minutes.step}
               />
             </Show>
             <Toggle

@@ -18,6 +18,14 @@ const typeOptions = [
   { value: "rss", label: "RSS" },
 ];
 
+// Each committed query pays for a full bge-m3 embedding (CPU, serialized in
+// the backend) plus a vector + FTS pass, so we only fire once the user has
+// actually paused typing. 150ms suits cheap text search; with an embedding
+// in the hot path a shorter window would burn one on every intermediate
+// prefix ("r" → "ru" → "rus" …). 350ms is the natural "finished typing"
+// pause, and still feels instant because the backend work is the slow part.
+const SEARCH_DEBOUNCE_MS = 350;
+
 export function SearchView() {
   const store = useAppStore();
   const [value, setValue] = createSignal<string>(store.query());
@@ -33,12 +41,15 @@ export function SearchView() {
     setValue(text);
     window.clearTimeout(debounce() ?? undefined);
     setDebounce(
-      window.setTimeout(() => store.runSearch(text, store.filters()), 150),
+      window.setTimeout(() => store.runSearch(text, store.filters()), SEARCH_DEBOUNCE_MS),
     );
   };
 
   const applyFilter = (patch: Partial<SearchFilters>) => {
     const next = { ...store.filters(), ...patch };
+    // Explicit action: run now, and drop any pending typing debounce so it
+    // doesn't fire a redundant duplicate search right after.
+    window.clearTimeout(debounce() ?? undefined);
     store.runSearch(value(), next);
   };
 
@@ -49,6 +60,7 @@ export function SearchView() {
   };
 
   const pickExample = (q: string) => {
+    window.clearTimeout(debounce() ?? undefined);
     setValue(q);
     store.runSearch(q, store.filters());
   };

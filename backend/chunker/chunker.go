@@ -23,6 +23,20 @@ func WordCount(text string) int {
 
 // SplitIntoWindows splits text into overlapping word-based windows.
 func SplitIntoWindows(text string, chunkSize, overlap int) []string {
+	// Defensive: the settings UI clamps these, but a hand-edited config.json
+	// can still slip through. chunkSize < 1 never advances the window start
+	// (infinite loop) and overlap >= chunkSize walks backwards into a
+	// negative slice bound, which panics.
+	if chunkSize < 1 {
+		chunkSize = 1
+	}
+	if overlap < 0 {
+		overlap = 0
+	}
+	if overlap >= chunkSize {
+		overlap = chunkSize - 1
+	}
+
 	words := strings.Fields(text)
 	if len(words) == 0 {
 		return nil

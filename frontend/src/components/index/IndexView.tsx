@@ -73,7 +73,11 @@ export function IndexView() {
               icon={<IndexIcon size={20} />}
               title="Nothing configured yet"
               note="Add an Obsidian vault, a project folder, a Calibre library, or a code repo under Settings."
-            />
+            >
+              <Button onClick={() => store.setView("settings")}>
+                Add sources in Settings
+              </Button>
+            </EmptyState>
           </div>
         }
       >
