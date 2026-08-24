@@ -1,0 +1,34 @@
+{
+  "defaults": {
+    "url": "http://127.0.0.1:9245",
+    "routeStub": "./scripts/vectile-stub.mjs",
+    "interact": "./scripts/vectile-interact.mjs",
+    "ready": "#root",
+    "timeoutMs": 30000,
+    "retries": 2,
+    "ignoreFailedRequests": ["/wails/custom.js"]
+  },
+  "pages": [
+    {
+      "name": "search",
+      "out": "docs/screenshots/search.png",
+      "interactView": "search",
+      "query": "kubernetes rollout"
+    },
+    {
+      "name": "library",
+      "out": "docs/screenshots/library.png",
+      "interactView": "library"
+    },
+    {
+      "name": "browse",
+      "out": "docs/screenshots/browse.png",
+      "interactView": "browse"
+    },
+    {
+      "name": "settings",
+      "out": "docs/screenshots/settings.png",
+      "interactView": "settings"
+    }
+  ]
+}

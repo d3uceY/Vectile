@@ -6,9 +6,9 @@ How the vectile backend came together: what I chose, and the problems I fixed al
 
 vectile indexes a person's files into one SQLite database, then lets them search it. The search is hybrid: exact-word matching over a full-text index, plus meaning matching over embeddings. The two result lists are blended with Reciprocal Rank Fusion.
 
-The engine is a native Go port of local-rag. The one big change is embeddings. local-rag calls an Ollama server over HTTP. vectile runs llama.go, a vendored llama.cpp binding, in-process. Nothing ever leaves the machine.
+The engine is inspired by local-rag. local-rag calls an Ollama server over HTTP; vectile runs llama.go, a vendored llama.cpp binding, in-process.
 
-Supported sMyces:
+Supported sources:
 
 - Project folders. Any folder of documents, each file parsed by its extension.
 - Obsidian vaults. Markdown with frontmatter, tags, and wikilinks.
@@ -42,7 +42,7 @@ Model placement. The app expects the model at `models/bge-m3-Q4_K_M.gguf`. It ne
 
 SQLite driver. `modernc.org/sqlite`, which is pure Go and needs no cgo, plus its vec extension for sqlite-vec and built-in FTS5. Clipcat proved this combination works. local-rag uses mattn/go-sqlite3, which needs cgo, so i did not implement that part.
 
-Schema. Ported from local-rag: `collections`, `sMyces`, `documents`, two vec0 virtual tables, and an FTS5 table kept in sync by triggers. `vec_documents` holds 1024-float vectors. `vec_documents_bin` holds binary-quantized copies so candidate retrieval is fast; the float vectors are fetched by rowid for the final rerank.
+Schema. Modeled on local-rag: `collections`, `sources`, `documents`, two vec0 virtual tables, and an FTS5 table kept in sync by triggers. `vec_documents` holds 1024-float vectors. `vec_documents_bin` holds binary-quantized copies so candidate retrieval is fast; the float vectors are fetched by rowid for the final rerank.
 
 Embedder. Ported from Clipcat. The model loads lazily on the first embed and stays resident. Inference is serialized with a mutex because llama.go's context is not safe for concurrent use. The embedding window is 2048 tokens, plenty for 500-word chunks.
 
@@ -50,7 +50,7 @@ Batching. local-rag embeds with several worker goroutines. vectile uses one work
 
 Git bookkeeping. Each code collection stores per-repo watermarks (the HEAD sha) as JSON in the collection's description column. Incremental index only reads files changed since the watermark. A failed run does not advance the watermark, so the failing file is retried next time.
 
-Config. The config file mirrors local-rag's shape minus the pieces i cut. Unknown keys survive a save, so the file is never clobbered.
+Config. The config file is modeled on local-rag's, minus the pieces vectile doesn't need. Unknown keys survive a save, so the file is never clobbered.
 
 Frontend bridge. Wails generates TypeScript bindings for the three services. The UI only talks to `frontend/src/lib/api.ts`, which wraps those bindings. Regenerating bindings never touches component code.
 
