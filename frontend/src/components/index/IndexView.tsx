@@ -85,7 +85,7 @@ export function IndexView() {
                 <div class="sheet flex flex-wrap items-center gap-x-5 gap-y-3 p-5">
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
-                      <span class="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">{item.name}</span>
+                      <span class="title truncate text-[15px] tracking-[-0.01em] text-ink">{item.name}</span>
                       <Chip tone={item.type === "code" ? "code" : "neutral"}>{item.type}</Chip>
                       {!item.enabled && <Chip>disabled</Chip>}
                     </div>

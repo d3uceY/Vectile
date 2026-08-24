@@ -35,7 +35,8 @@ export function AppShell() {
 
       <div class="relative flex min-w-0 flex-1 flex-col">
         <StatusStrip />
-        <main class="scroll-quiet relative flex-1 overflow-y-auto">
+        {/* One non-scrolling frame; each view owns its scroll (per-view scroll) */}
+        <main class="relative min-h-0 flex-1 overflow-hidden">
           <div class="relative mx-auto h-full w-full max-w-[61.25rem] px-5 py-7 md:px-8">
             <Show when={store.view() === "search"}>
               <SearchView />

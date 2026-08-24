@@ -35,9 +35,9 @@ The green is one accent, used at page scale for what is selected or active, not 
 
 Three voices:
 
-- **Instrument Sans** (variable) — UI and body. Display headings at 26px, semibold, tracking -0.02em; body 13.5–16px.
+- **Fraunces** (variable, opsz) — the serif voice, and the one with the personality: page heads at 28px with tight -0.025em tracking, section/smaller titles, and reading passages (search snippets, document chunks) set like book text. Optical sizing (`font-optical-sizing: auto`) keeps the face open at small sizes and showy at display sizes. The serif-italic margin-note voice lives here too.
+- **Plus Jakarta Sans** (variable) — the chrome: UI labels, buttons, inputs, nav, body copy 13–16px. Clean and highly legible next to the serif.
 - **IBM Plex Mono** — data only: paths, scores, counts, kbd hints, collection metadata. Never as costume.
-- **Instrument Serif** (italic) — the margin-note voice: taglines, empty-state asides, view sublines.
 
 Self-hosted via @fontsource; the app never hits a CDN at runtime.
 

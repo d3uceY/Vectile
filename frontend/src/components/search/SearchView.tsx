@@ -170,8 +170,8 @@ export function SearchView() {
         </Show>
       </div>
 
-      {/* Results area */}
-      <div class="relative mt-6 flex-1">
+      {/* Results area — the view's own scroll region */}
+      <div class="scroll-quiet relative mt-6 min-h-0 flex-1 overflow-y-auto">
         <Show
           when={store.searchState() === "idle"}
           fallback={
@@ -208,7 +208,7 @@ function IdleState(props: { onPick: (q: string) => void }) {
         <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-card border border-line bg-paper text-leaf shadow-card">
           <BoltIcon size={20} />
         </div>
-        <h2 class="text-[22px] font-semibold tracking-[-0.015em] text-ink">
+        <h2 class="title text-[22px] tracking-[-0.02em] text-ink">
           Ask your library
         </h2>
         <p class="note mt-2 max-w-[36ch] text-[15.5px] leading-6 text-muted">

@@ -64,19 +64,19 @@ export function ResultCard(props: { result: SearchResult; terms: string[] }) {
       aria-label={`${r().title} — expand to read the full passage`}
     >
       <div class="flex items-start justify-between gap-4">
-        <h3 class="text-[15px] font-semibold leading-6 tracking-[-0.005em] text-ink">
+        <h3 class="title text-[15px] leading-6 tracking-[-0.005em] text-ink">
           <Highlighted text={r().title} terms={props.terms} />
         </h3>
         <span class="data mt-1 shrink-0 text-leaf-deep">{r().score.toFixed(2)}</span>
       </div>
 
-      <p class="mt-1.5 line-clamp-3 text-[13.5px] leading-[1.55] text-muted">
+      <p class="read mt-1.5 line-clamp-3 text-[14.5px] leading-[1.6] text-muted">
         <Highlighted text={r().content} terms={props.terms} />
       </p>
 
       <Show when={open()}>
         <div class="mt-3 rounded-[10px] border border-line bg-surface/60 p-4">
-          <p class="max-h-48 overflow-y-auto whitespace-pre-wrap text-[13px] leading-[1.6] text-ink-soft">
+          <p class="read max-h-48 overflow-y-auto whitespace-pre-wrap text-[14.5px] leading-[1.65] text-ink-soft">
             {r().content}
           </p>
           <Show when={meta().length > 0}>

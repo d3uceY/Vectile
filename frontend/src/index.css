@@ -6,18 +6,19 @@
    ============================================================ */
 
 /* Self-hosted type (a desktop app must never hit a CDN at runtime) */
-@import "@fontsource-variable/instrument-sans";
-@import "@fontsource/instrument-serif/400.css";
-@import "@fontsource/instrument-serif/400-italic.css";
+@import "@fontsource-variable/fraunces/opsz.css";
+@import "@fontsource-variable/fraunces/opsz-italic.css";
+@import "@fontsource-variable/plus-jakarta-sans";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 
 @import "tailwindcss";
 
 @theme {
-  /* Type voices */
-  --font-sans: "Instrument Sans Variable", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  /* Type voices: Fraunces (serif) carries titles + reading; Plus Jakarta
+     Sans runs the chrome; IBM Plex Mono handles data lines. */
+  --font-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Fraunces Variable", "Fraunces", Georgia, "Times New Roman", serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* Paper + ink */
@@ -75,6 +76,7 @@
     background-color: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    font-optical-sizing: auto; /* Fraunces opsz auto-tunes display vs. text */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -128,6 +130,20 @@
     font-style: italic;
     font-weight: 400;
     letter-spacing: 0.005em;
+  }
+
+  /* Display voice: serif for titles — the library index-card look. Pair with
+     a size/color class; this swaps the typeface and weight only. */
+  .title {
+    font-family: var(--font-serif);
+    font-weight: 400;
+  }
+
+  /* Reading voice: serif for passages, snippets, and document chunks — the
+     books-on-paper feel of a library. Optical sizing keeps small text open. */
+  .read {
+    font-family: var(--font-serif);
+    font-optical-sizing: auto;
   }
 
   /* Mono data line: paths, scores, counts */

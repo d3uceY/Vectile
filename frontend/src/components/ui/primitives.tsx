@@ -1,6 +1,7 @@
-import { For, type JSX } from "solid-js";
+import { createSignal, For, onCleanup, Show, type JSX } from "solid-js";
+import { Portal } from "solid-js/web";
 import type { ModelState } from "../../lib/types";
-import { ChevronDown, CloseIcon } from "./icons";
+import { ChevronDown, CloseIcon, InfoIcon } from "./icons";
 
 /* ---------------- Button ---------------- */
 
@@ -109,21 +110,105 @@ export function Toggle(props: {
   onChange: (v: boolean) => void;
   label: string;
   description?: string;
+  hint?: string;
 }) {
+  // A role="switch" button, not a hidden checkbox in a <label>: clicking it
+  // must not make the browser scroll-into-view a 1px sr-only input (that was
+  // scrolling the page to the bottom of long settings lists). Button keeps
+  // keyboard (Tab + Space) and screen-reader (switch) support.
   return (
-    <label class="flex cursor-pointer items-center justify-between gap-4 py-1">
+    <div class="flex items-center justify-between gap-4 py-1">
       <span>
-        <span class="block text-sm text-ink">{props.label}</span>
+        <span class="flex items-center gap-1.5">
+          <span class="block text-sm text-ink">{props.label}</span>
+          {props.hint && <InfoTip text={props.hint} />}
+        </span>
         {props.description && <span class="block text-[13px] text-muted">{props.description}</span>}
       </span>
-      <input
-        type="checkbox"
-        class="peer sr-only"
-        checked={props.checked}
-        onChange={(e) => props.onChange(e.currentTarget.checked)}
-      />
-      <span class="relative h-6 w-10 shrink-0 rounded-full border border-line-strong bg-surface transition-colors duration-150 ease-snappy peer-checked:bg-leaf peer-checked:border-leaf after:absolute after:left-0.5 after:top-0.5 after:h-4.5 after:w-4.5 after:rounded-full after:bg-white after:transition-transform after:duration-150 after:ease-snappy peer-checked:after:translate-x-4" />
-    </label>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={props.checked}
+        aria-label={props.label}
+        onClick={() => props.onChange(!props.checked)}
+        class={`relative h-6 w-10 shrink-0 rounded-full border transition-colors duration-150 ease-snappy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf/60 focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${
+          props.checked ? "border-leaf bg-leaf" : "border-line-strong bg-surface"
+        }`}
+      >
+        <span
+          class={`absolute left-0.5 top-0.5 h-4.5 w-4.5 rounded-full bg-white transition-transform duration-150 ease-snappy ${
+            props.checked ? "translate-x-4" : ""
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
+/* ---------------- InfoTip (hover explanation) ---------------- */
+
+// A small info icon that opens a floating explanation on hover or keyboard
+// focus. Rendered through a portal to <body> so it isn't clipped by the
+// settings list's scroll container, and it repositions itself above the icon
+// when there isn't room below. A short delay stops it flickering while the
+// pointer is just passing through a row.
+export function InfoTip(props: { text: string; class?: string }) {
+  let ref: HTMLButtonElement | undefined;
+  const [pos, setPos] = createSignal<{ x: number; y: number } | null>(null);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const open = () => {
+    const r = ref?.getBoundingClientRect();
+    if (!r) return;
+    const pad = 8;
+    const est = 170; // rough bubble height; flips above when tight on space
+    const below = r.bottom + pad;
+    const y = below + est <= window.innerHeight ? below : Math.max(pad, r.top - pad - est);
+    const x = Math.min(Math.max(pad, r.left), window.innerWidth - 316);
+    setPos({ x, y });
+    window.addEventListener("scroll", hide, true);
+  };
+  const show = () => {
+    if (pos()) return;
+    clearTimeout(timer);
+    timer = setTimeout(open, 150);
+  };
+  const hide = () => {
+    clearTimeout(timer);
+    setPos(null);
+    window.removeEventListener("scroll", hide, true);
+  };
+  onCleanup(() => {
+    clearTimeout(timer);
+    window.removeEventListener("scroll", hide, true);
+  });
+
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        class={`inline-flex shrink-0 items-center justify-center rounded-full text-faint transition-colors hover:text-leaf focus-visible:text-leaf ${props.class ?? ""}`}
+        aria-label="What this setting does"
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+      >
+        <InfoIcon size={15} />
+      </button>
+      <Show when={pos()}>
+        <Portal mount={document.body}>
+          <div
+            role="tooltip"
+            class="pointer-events-none fixed z-100 w-75 rounded-control border border-line bg-paper p-3 text-[13px] leading-5 text-ink shadow-pop"
+            style={{ left: `${pos()!.x}px`, top: `${pos()!.y}px` }}
+          >
+            {props.text}
+          </div>
+        </Portal>
+      </Show>
+    </>
   );
 }
 
@@ -181,7 +266,7 @@ export function EmptyState(props: {
           {props.icon}
         </div>
       )}
-      <h3 class="text-lg font-semibold tracking-[-0.01em] text-ink">{props.title}</h3>
+      <h3 class="title text-lg tracking-[-0.01em] text-ink">{props.title}</h3>
       {props.note && <p class="note mt-2 max-w-[34ch] text-[15.5px] leading-6 text-muted">{props.note}</p>}
       {props.children && <div class="mt-5">{props.children}</div>}
     </div>
@@ -205,7 +290,7 @@ export function ViewHeading(props: { title: string; note?: string; children?: JS
   return (
     <div class="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
       <div>
-        <h1 class="text-[26px] font-semibold leading-tight tracking-[-0.02em] text-ink">
+        <h1 class="title text-[28px] leading-tight tracking-[-0.025em] text-ink">
           {props.title}
         </h1>
         {props.note && <p class="note mt-1.5 text-[15.5px] text-muted">{props.note}</p>}

@@ -1,8 +1,8 @@
-import { createEffect, createSignal, For, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, Show, type JSX } from "solid-js";
 import { useAppStore } from "../../lib/store";
 import { pickFolder } from "../../lib/api";
 import type { AppConfig, GUIConfig, SearchDefaults } from "../../lib/types";
-import { Button, StatusPill, Toggle, ViewHeading } from "../ui/primitives";
+import { Button, InfoTip, StatusPill, Toggle, ViewHeading } from "../ui/primitives";
 import { CloseIcon, FolderOpenIcon } from "../ui/icons";
 
 /* ---- small building blocks ---- */
@@ -10,24 +10,36 @@ import { CloseIcon, FolderOpenIcon } from "../ui/icons";
 function Section(props: { title: string; note?: string; children: JSX.Element }) {
   return (
     <section class="sheet mb-5 p-5">
-      <h2 class="mb-1 text-[15px] font-semibold tracking-[-0.01em] text-ink">{props.title}</h2>
+      <h2 class="title mb-1 text-[16px] tracking-[-0.01em] text-ink">{props.title}</h2>
       {props.note && <p class="note mb-4 text-[13.5px] leading-5 text-muted">{props.note}</p>}
       <div class="space-y-4">{props.children}</div>
     </section>
   );
 }
 
-function NumField(props: { label: string; value: number; onChange: (n: number) => void }) {
+function NumField(props: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  hint?: string;
+}) {
+  const uid = createUniqueId();
   return (
-    <label class="flex items-center justify-between gap-4">
-      <span class="text-[13.5px] text-ink-soft">{props.label}</span>
+    <div class="flex items-center justify-between gap-4">
+      <span class="flex items-center gap-1.5 text-[13.5px] text-ink-soft">
+        <label for={uid} class="cursor-pointer">
+          {props.label}
+        </label>
+        {props.hint && <InfoTip text={props.hint} />}
+      </span>
       <input
+        id={uid}
         type="number"
         value={props.value}
         onInput={(e) => props.onChange(Number(e.currentTarget.value))}
         class="h-8 w-24 rounded-control border border-line bg-paper px-2 text-right text-[13px] outline-none focus:border-leaf"
       />
-    </label>
+    </div>
   );
 }
 
@@ -239,25 +251,59 @@ export function SettingsView() {
               label="Embedding batch size"
               value={draft()!.embedding_batch_size}
               onChange={(n) => setNumber("embedding_batch_size", n)}
+              hint="How many chunks get fed to the model at once. A bigger number finishes indexing faster but uses more memory while it runs. If a large library makes the app stall, drop it to something like 16."
             />
           </Section>
 
           <Section title="Chunking" note="Word-based windows. Smaller chunks match tighter; overlap keeps straddling sentences intact.">
-            <NumField label="Chunk size (words)" value={draft()!.chunk_size_tokens} onChange={(n) => setNumber("chunk_size_tokens", n)} />
-            <NumField label="Chunk overlap (words)" value={draft()!.chunk_overlap_tokens} onChange={(n) => setNumber("chunk_overlap_tokens", n)} />
+            <NumField
+              label="Chunk size (words)"
+              value={draft()!.chunk_size_tokens}
+              onChange={(n) => setNumber("chunk_size_tokens", n)}
+              hint="How many words each indexed slice of a document holds. Search matches against these slices, not whole files, so this sets how finely results are cut. Small chunks answer narrowly, big ones carry more surrounding context. 500 is a safe starting point."
+            />
+            <NumField
+              label="Chunk overlap (words)"
+              value={draft()!.chunk_overlap_tokens}
+              onChange={(n) => setNumber("chunk_overlap_tokens", n)}
+              hint="How many words repeat from one slice into the next. The repeat keeps sentences and ideas that straddle a cut from being split in half, so they still search whole. Too little overlap and things slip through; too much and the same text gets stored twice. 50 is the usual starting point."
+            />
           </Section>
 
           <Section title="Search" note="Hybrid ranking blends exact-term and meaning results.">
-            <NumField label="Top results" value={draft()!.search_defaults.top_k} onChange={(n) => setSearch("top_k", n)} />
-            <NumField label="RRF constant (k)" value={draft()!.search_defaults.rrf_k} onChange={(n) => setSearch("rrf_k", n)} />
-            <NumField label="Vector weight" value={draft()!.search_defaults.vector_weight} onChange={(n) => setSearch("vector_weight", n)} />
-            <NumField label="Full-text weight" value={draft()!.search_defaults.fts_weight} onChange={(n) => setSearch("fts_weight", n)} />
+            <NumField
+              label="Top results"
+              value={draft()!.search_defaults.top_k}
+              onChange={(n) => setSearch("top_k", n)}
+              hint="How many matches a search returns by default. Raise it to see more of the pile, lower it to keep the list short. You can still ask for a different number on any individual search."
+            />
+            <NumField
+              label="RRF constant (k)"
+              value={draft()!.search_defaults.rrf_k}
+              onChange={(n) => setSearch("rrf_k", n)}
+              hint="A smoothing value in the math that merges the two search lists. Bigger k flattens the gap between high and low ranked matches, so entries further down the list still get a fair shot. 60 is the standard value for this kind of search."
+            />
+            <NumField
+              label="Vector weight"
+              value={draft()!.search_defaults.vector_weight}
+              onChange={(n) => setSearch("vector_weight", n)}
+              hint="How much the meaning-based ranking counts when the two search lists are blended. It works against the full-text weight like a seesaw: raise it and results lean toward semantic matches, even when the words don't line up exactly."
+            />
+            <NumField
+              label="Full-text weight"
+              value={draft()!.search_defaults.fts_weight}
+              onChange={(n) => setSearch("fts_weight", n)}
+              hint="How much exact-word matches count in the final blend. Raise it when you're hunting a precise phrase or a name and want literal hits to win. Lower it and meaning takes over from wording."
+            />
           </Section>
 
           <Section title="Sources" note="Folders are walked recursively. Code repositories discover nested git repos automatically.">
             <div class="grid gap-6 md:grid-cols-2">
               <div>
-                <p class="mb-2 text-[13px] font-medium text-ink-soft">Obsidian vaults</p>
+                <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
+                  Obsidian vaults
+                  <InfoTip text="Point at an Obsidian vault and every markdown note in it gets indexed, subfolders included. Once it's in, you can search your notes by meaning as well as by keyword. Use the exclude list below to keep noisy folders out." />
+                </p>
                 <PathList
                   values={draft()!.obsidian_vaults}
                   onAdd={(v) => addPath("obsidian_vaults", v)}
@@ -266,7 +312,10 @@ export function SettingsView() {
                 />
               </div>
               <div>
-                <p class="mb-2 text-[13px] font-medium text-ink-soft">Obsidian exclude folders</p>
+                <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
+                  Obsidian exclude folders
+                  <InfoTip text="Folders listed here are skipped when vaults are indexed. Handy for hiding attachments, templates, .trash, or anything else you don't want showing up in search results." />
+                </p>
                 <PathList
                   values={draft()!.obsidian_exclude_folders}
                   onAdd={(v) => addPath("obsidian_exclude_folders", v)}
@@ -275,7 +324,10 @@ export function SettingsView() {
                 />
               </div>
               <div>
-                <p class="mb-2 text-[13px] font-medium text-ink-soft">Calibre libraries</p>
+                <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
+                  Calibre libraries
+                  <InfoTip text="Point at a Calibre library and the app reads your book metadata and indexes the text of the formats it understands, so your books become searchable without opening them." />
+                </p>
                 <PathList
                   values={draft()!.calibre_libraries}
                   onAdd={(v) => addPath("calibre_libraries", v)}
@@ -286,7 +338,10 @@ export function SettingsView() {
             </div>
             <div class="grid gap-6 md:grid-cols-2">
               <div>
-                <p class="mb-2 text-[13px] font-medium text-ink-soft">Project folders</p>
+                <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
+                  Project folders
+                  <InfoTip text="A group of folders that get indexed together as one collection. Each group you create becomes its own searchable set, so you can keep client work separate from personal files. Folders are walked recursively." />
+                </p>
                 <GroupList
                   groups={draft()!.projects}
                   onAddPath={(n, v) => addGroupPath("projects", n, v)}
@@ -297,7 +352,10 @@ export function SettingsView() {
                 />
               </div>
               <div>
-                <p class="mb-2 text-[13px] font-medium text-ink-soft">Code repositories</p>
+                <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
+                  Code repositories
+                  <InfoTip text="Git repositories to index as code. The app indexes the current file tree and the commit history (how far back is set below), including any nested repos it finds, and makes the code itself searchable by meaning." />
+                </p>
                 <GroupList
                   groups={draft()!.repositories}
                   onAddPath={(n, v) => addGroupPath("repositories", n, v)}
@@ -311,21 +369,33 @@ export function SettingsView() {
           </Section>
 
           <Section title="Indexing">
-            <NumField label="Commit history (months)" value={draft()!.git_history_in_months} onChange={(n) => setNumber("git_history_in_months", n)} />
+            <NumField
+              label="Commit history (months)"
+              value={draft()!.git_history_in_months}
+              onChange={(n) => setNumber("git_history_in_months", n)}
+              hint="How many months of git history get indexed for a repository. Each commit becomes a searchable document, so this controls how far back you can dig through your changelog. 6 months is the default."
+            />
             <Toggle
               checked={draft()!.gui.auto_reindex}
               onChange={(v) => setGui({ auto_reindex: v })}
               label="Auto-reindex"
               description="Re-index all enabled collections on a timer."
+              hint="Re-index all your collections on a timer in the background, so files you add or edit show up in search without you running anything manually. Off by default, since a full pass can use your CPU and model for a while. Turn it on if you're constantly adding files."
             />
             <Show when={draft()!.gui.auto_reindex}>
-              <NumField label="Interval (minutes)" value={draft()!.gui.auto_reindex_interval_minutes} onChange={(n) => setGui({ auto_reindex_interval_minutes: n })} />
+              <NumField
+                label="Interval (minutes)"
+                value={draft()!.gui.auto_reindex_interval_minutes}
+                onChange={(n) => setGui({ auto_reindex_interval_minutes: n })}
+                hint="How often the auto-reindex timer fires. 60 means once an hour. Only matters when Auto-reindex is switched on."
+              />
             </Show>
             <Toggle
               checked={draft()!.gui.start_on_login}
               onChange={(v) => setGui({ start_on_login: v })}
               label="Start on login"
               description="Launch vectile when you sign in."
+              hint="Launch vectile automatically when you sign in to your computer, so it's already open and indexing before you need it."
             />
           </Section>
         </div>

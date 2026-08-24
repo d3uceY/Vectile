@@ -43,7 +43,7 @@ export function LibraryView() {
         />
       </div>
 
-      <div class="relative flex-1">
+      <div class="scroll-quiet relative min-h-0 flex-1 overflow-y-auto">
         <div class="sheet overflow-hidden">
           <div class="grid grid-cols-12 gap-2 border-b border-line bg-surface/50 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
             <span class="col-span-5">Collection</span>
@@ -73,7 +73,7 @@ export function LibraryView() {
                           }`}
                         />
                         <span class="flex min-w-0 items-center gap-2">
-                          <span class="truncate text-[14px] font-semibold text-ink">{c.name}</span>
+                          <span class="title truncate text-[14px] text-ink">{c.name}</span>
                           <TypeBadge type={c.type} />
                         </span>
                       </span>

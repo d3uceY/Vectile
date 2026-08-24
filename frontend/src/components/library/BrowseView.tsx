@@ -86,7 +86,7 @@ export function BrowseView() {
               return (
                 <div class="sheet flex min-h-0 flex-1 flex-col overflow-hidden">
                   <div class="border-b border-line bg-surface/50 px-5 py-4">
-                    <h3 class="text-[16px] font-semibold leading-6 tracking-[-0.005em] text-ink">
+                    <h3 class="title text-[16px] leading-6 tracking-[-0.005em] text-ink">
                       {d().title}
                     </h3>
                     <p class="data mt-1.5 truncate text-faint">{src()?.path ?? ""}</p>
@@ -99,7 +99,7 @@ export function BrowseView() {
                     </div>
                   </div>
                   <div class="scroll-quiet min-h-0 flex-1 overflow-y-auto p-5">
-                    <p class="whitespace-pre-wrap text-[13.5px] leading-[1.65] text-ink-soft">
+                    <p class="read whitespace-pre-wrap text-[15px] leading-[1.7] text-ink-soft">
                       {d().content}
                     </p>
                   </div>
