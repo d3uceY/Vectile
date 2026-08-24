@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -57,7 +58,7 @@ func TestIndexAndSearchEndToEnd(t *testing.T) {
 	embedder := embeddings.NewEmbedder(modelPath)
 	t.Cleanup(embedder.Close)
 
-	result := IndexProject(conn, cfg, "test", []string{dir}, false, nil, embedder)
+	result := IndexProject(context.Background(), conn, cfg, "test", []string{dir}, false, nil, embedder)
 	if result.Errors > 0 {
 		t.Fatalf("index errors: %v", result.ErrorMessages)
 	}

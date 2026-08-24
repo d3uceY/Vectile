@@ -5,7 +5,13 @@ import { ViewHeading, Button, Chip, EmptyState, Skeleton } from "../ui/primitive
 import { BrowseIcon } from "../ui/icons";
 import { GridPattern } from "../ui/patterns";
 
-const id = (n: number) => String(n);
+// Tree node ids must be unique across the whole tree, but collection/source/
+// document ids each autoincrement from 1 — a source folder "1" used to collide
+// with the collection folder "1", so collapsing one collapsed its same-id
+// parent too. Prefix each namespace; the prefix is internal to the tree only.
+const cid = (n: number) => `c-${n}`; // collection folder
+const sid = (n: number) => `s-${n}`; // source folder
+const did = (n: number) => `d-${n}`; // document (file)
 
 export function BrowseView() {
   const store = useAppStore();
@@ -13,28 +19,31 @@ export function BrowseView() {
 
   const tree = createMemo<TreeViewElement[]>(() =>
     store.collections().map((c) => ({
-      id: id(c.id),
+      id: cid(c.id),
       name: c.name,
       type: "folder" as const,
       children: store
         .sources()
         .filter((s) => s.collectionId === c.id)
         .map((s) => ({
-          id: id(s.id),
+          id: sid(s.id),
           name: s.path.split(/[\\/]/).pop() || s.path,
           type: "folder" as const,
           children: store
             .documents()
             .filter((d) => d.sourceId === s.id)
-            .map((d) => ({ id: id(d.id), name: d.title, type: "file" as const })),
+            .map((d) => ({ id: did(d.id), name: d.title, type: "file" as const })),
         })),
     })),
   );
 
   const initialExpanded = createMemo(() => {
+    const out: string[] = [];
     const first = store.collections()[0];
+    if (first) out.push(cid(first.id));
     const firstSource = store.sources().find((s) => s.collectionId === first?.id);
-    return [first?.id, firstSource?.id].filter((x) => x !== undefined).map((x) => id(x!));
+    if (firstSource) out.push(sid(firstSource.id));
+    return out;
   });
 
   const doc = () => {
@@ -44,7 +53,7 @@ export function BrowseView() {
   };
 
   const onSelect = (tid: string) => {
-    const d = store.documents().find((x) => id(x.id) === tid);
+    const d = store.documents().find((x) => did(x.id) === tid);
     if (d) store.setSelectedDoc(d);
   };
 
@@ -99,7 +108,7 @@ export function BrowseView() {
           <div class="sheet scroll-quiet min-h-0 flex-1 overflow-y-auto p-3">
             <FileTree
               elements={loaded() ? tree() : []}
-              initialSelectedId={doc() ? id(doc()!.id) : undefined}
+              initialSelectedId={doc() ? did(doc()!.id) : undefined}
               initialExpandedItems={initialExpanded()}
               onSelect={onSelect}
               showExpandAll

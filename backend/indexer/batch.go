@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -42,6 +43,7 @@ type itemFunc func(i int) *indexItem
 // sequential (llama.go serializes inference anyway) and every DB write happens
 // on this goroutine, since SQLite takes no concurrent writers.
 func indexItemsBatched(
+	ctx context.Context,
 	conn *sql.DB,
 	cfg *config.Config,
 	collectionID int64,
@@ -59,9 +61,14 @@ func indexItemsBatched(
 
 	b := &itemBatcher{cfg: cfg, total: total, itemAt: itemAt}
 	defer func() { result.Skipped += b.skipped }()
-	done := 0
+	indexed := 0
 
 	for {
+		// Check cancellation between batches: SQLite writes aren't preemptable
+		// mid-statement, so batch boundaries are the coarsest safe abort point.
+		if ctx != nil && ctx.Err() != nil {
+			return
+		}
 		batch := b.nextBatch()
 		if batch == nil {
 			return
@@ -75,10 +82,13 @@ func indexItemsBatched(
 			batch.vecs = vecs
 		}
 
-		writeItemBatch(conn, collectionID, batch, result, preCleared)
-		done += len(batch.items) + batch.dropped
-		if progress != nil && len(batch.items) > 0 {
-			progress(done, total, batch.items[len(batch.items)-1].Title)
+		// Progress fires once per successfully indexed file so the frontend can
+		// increment a per-collection count from a scoped event.
+		for _, t := range writeItemBatch(conn, collectionID, batch, result, preCleared) {
+			indexed++
+			if progress != nil {
+				progress(indexed, total, t)
+			}
 		}
 	}
 }
@@ -171,7 +181,10 @@ func hasContent(chunks []chunker.Chunk) bool {
 
 // writeItemBatch stores an embedded batch, attributing failures per item so
 // one bad item does not sink the rest.
-func writeItemBatch(conn *sql.DB, collectionID int64, b *itemBatch, result *IndexResult, preCleared bool) {
+// writeItemBatch stores an embedded batch, attributing failures per item so
+// one bad item does not sink the rest. It returns the titles of the items
+// that were successfully stored, so the caller can emit per-file progress.
+func writeItemBatch(conn *sql.DB, collectionID int64, b *itemBatch, result *IndexResult, preCleared bool) []string {
 	if b.dropped > 0 {
 		result.Errors += b.dropped
 		result.ErrorMessages = append(result.ErrorMessages,
@@ -184,13 +197,14 @@ func writeItemBatch(conn *sql.DB, collectionID int64, b *itemBatch, result *Inde
 		slog.Error(msg)
 		result.Errors += len(b.items)
 		result.ErrorMessages = append(result.ErrorMessages, msg)
-		return
+		return nil
 	}
 
 	if !preCleared {
 		purgeSourceDocuments(conn, collectionID, b.items)
 	}
 
+	var indexedTitles []string
 	offset := 0
 	for _, item := range b.items {
 		vecs := b.vecs[offset : offset+len(item.Chunks)]
@@ -206,7 +220,9 @@ func writeItemBatch(conn *sql.DB, collectionID int64, b *itemBatch, result *Inde
 			continue
 		}
 		result.Indexed++
+		indexedTitles = append(indexedTitles, item.Title)
 	}
+	return indexedTitles
 }
 
 // sqlParamLimit bounds how many bind parameters go into one statement.

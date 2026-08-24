@@ -5,7 +5,9 @@ import type {
   AppConfig,
   Collection,
   Document,
+  IndexCancelled,
   IndexComplete,
+  IndexFileProgress,
   IndexProgress,
   ModelState,
   SearchFilters,
@@ -61,6 +63,9 @@ export function createAppStore() {
   const [indexing, setIndexing] = createSignal(false);
   const [indexProgress, setIndexProgress] = createSignal<IndexProgress | null>(null);
   const [indexLast, setIndexLast] = createSignal<IndexComplete | null>(null);
+  // Per-collection progress, keyed by collection name — drives the inline
+  // loader on the dir currently being indexed.
+  const [indexByCollection, setIndexByCollection] = createSignal<Record<string, IndexFileProgress>>({});
 
   // Toasts
   const [toasts, setToasts] = createSignal<Toast[]>([]);
@@ -187,19 +192,39 @@ export function createAppStore() {
     pushToast("Settings saved", "success");
   };
 
-  // Index view actions.
-  const startIndex = (name: string, force = false) => {
+  // Index view actions. The backend reports whether a run actually started;
+  // "indexing" is only set on a confirmed start so a rejected request (another
+  // run in progress) never leaves the buttons permanently disabled — the mute
+  // bug where pressing Index did nothing.
+  const startIndex = async (name: string, force = false) => {
     setIndexLast(null);
     setIndexProgress(null);
+    setIndexByCollection((m) => {
+      const n = { ...m };
+      delete n[name];
+      return n;
+    });
+    const started = await api.indexCollection(name, force);
+    if (!started) {
+      pushToast("Another index is already running", "neutral");
+      return;
+    }
     setIndexing(true);
-    void api.indexCollection(name, force);
   };
 
-  const startIndexAll = (force = false) => {
+  const startIndexAll = async (force = false) => {
     setIndexLast(null);
     setIndexProgress(null);
+    const started = await api.indexAll(force);
+    if (!started) {
+      pushToast("Another index is already running", "neutral");
+      return;
+    }
     setIndexing(true);
-    void api.indexAll(force);
+  };
+
+  const cancelIndex = async () => {
+    if (await api.cancelIndexing()) pushToast("Cancelling index…", "neutral");
   };
 
   const runPrune = async (name: string) => {
@@ -226,14 +251,36 @@ export function createAppStore() {
   const offProgress = Events.On("indexing:progress", (ev) =>
     setIndexProgress(ev.data as IndexProgress),
   );
+  const offFile = Events.On("indexing:file", (ev) => {
+    const e = ev.data as IndexFileProgress;
+    setIndexByCollection((m) => ({ ...m, [e.collection]: e }));
+  });
   const offComplete = Events.On("indexing:complete", (ev) => {
     const e = ev.data as IndexComplete;
+    setIndexByCollection((m) => {
+      const n = { ...m };
+      delete n[e.collection];
+      return n;
+    });
     setIndexProgress(null);
     setIndexLast(e);
     setIndexing(false);
     void refresh();
+    void loadLibrary(); // browse should pick up freshly indexed files
     if (e.errors > 0) pushToast(`${e.collection}: ${e.errors} error(s)`, "danger");
     else pushToast(`Indexed ${e.collection} · ${e.indexed} new`, "success");
+  });
+  const offCancelled = Events.On("indexing:cancelled", (ev) => {
+    const e = ev.data as IndexCancelled;
+    setIndexByCollection((m) => {
+      const n = { ...m };
+      delete n[e.collection];
+      return n;
+    });
+    setIndexProgress(null);
+    setIndexing(false);
+    void refresh();
+    pushToast(`Indexing ${e.collection} cancelled · ${e.indexed} indexed`, "neutral");
   });
   const offPruned = Events.On("indexing:pruned", (ev) => {
     const n = ev.data as number;
@@ -246,7 +293,9 @@ export function createAppStore() {
   });
   onCleanup(() => {
     offProgress();
+    offFile();
     offComplete();
+    offCancelled();
     offPruned();
   });
 
@@ -280,9 +329,11 @@ export function createAppStore() {
     setSelectedDoc,
     indexing,
     indexProgress,
+    indexByCollection,
     indexLast,
     startIndex,
     startIndexAll,
+    cancelIndex,
     runPrune,
     toggleCollection,
     toasts,

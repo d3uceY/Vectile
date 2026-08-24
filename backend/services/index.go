@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -78,31 +79,49 @@ func (s *IndexService) ToggleCollectionEnabled(name string, enabled bool) error 
 }
 
 // IndexCollection starts indexing one collection in the background, emitting
-// indexing:progress and indexing:complete events.
-func (s *IndexService) IndexCollection(name string, force bool) {
+// indexing:file, indexing:progress, and indexing:complete / indexing:cancelled
+// events. Returns false when another index run is already in progress, so the
+// frontend never gets stuck in an "indexing" state for a run that never
+// actually started.
+func (s *IndexService) IndexCollection(name string, force bool) (bool, error) {
+	if !s.lockIndex() {
+		return false, nil
+	}
 	go func() {
-		if !s.lockIndex() {
-			return
-		}
 		defer s.unlockIndex()
-		s.runIndex(name, force)
+		ctx := s.core.newIndexContext()
+		defer s.core.clearIndexContext()
+		s.runIndex(ctx, name, force)
 	}()
+	return true, nil
 }
 
 // IndexAll starts pruning + indexing every enabled, configured collection.
-func (s *IndexService) IndexAll(force bool) {
+func (s *IndexService) IndexAll(force bool) (bool, error) {
+	if !s.lockIndex() {
+		return false, nil
+	}
 	go func() {
-		if !s.lockIndex() {
-			return
-		}
 		defer s.unlockIndex()
+		ctx := s.core.newIndexContext()
+		defer s.core.clearIndexContext()
 		if pr := indexer.PruneAll(db.DB, s.core.Cfg); pr.Pruned > 0 {
 			s.core.App.Event.Emit("indexing:pruned", pr.Pruned)
 		}
 		for _, name := range s.configuredCollections() {
-			s.runIndex(name, force)
+			if ctx.Err() != nil {
+				break
+			}
+			s.runIndex(ctx, name, force)
 		}
 	}()
+	return true, nil
+}
+
+// CancelIndexing aborts the active index run, if any, and reports whether one
+// was running.
+func (s *IndexService) CancelIndexing() bool {
+	return s.core.cancelIndex()
 }
 
 // Prune removes stale sources from a collection ("all" or "" for everything).
@@ -137,31 +156,48 @@ func (s *IndexService) unlockIndex() {
 }
 
 // runIndex dispatches one collection to its indexer and emits progress events.
-func (s *IndexService) runIndex(name string, force bool) {
+func (s *IndexService) runIndex(ctx context.Context, name string, force bool) {
 	cfg := s.core.Cfg
 	progress := func(current, total int, item string) {
-		s.core.App.Event.Emit("indexing:progress", IndexProgress{
-			Collection: name, Current: current, Total: total, Item: item,
+		// Per-file event: the frontend increments its per-collection count.
+		s.core.App.Event.Emit("indexing:file", IndexFileProgress{
+			Collection: name, File: item, Indexed: current, Total: total,
 		})
+		// Throttled aggregate progress (the old shape), kept for summaries.
+		if current == total || current%25 == 0 {
+			s.core.App.Event.Emit("indexing:progress", IndexProgress{
+				Collection: name, Current: current, Total: total, Item: item,
+			})
+		}
 	}
 
 	var result *indexer.IndexResult
 	switch {
 	case name == "obsidian":
-		result = indexer.IndexObsidian(db.DB, cfg, force, progress, s.core.Embedder)
+		result = indexer.IndexObsidian(ctx, db.DB, cfg, force, progress, s.core.Embedder)
 	case name == "calibre":
-		result = indexer.IndexCalibre(db.DB, cfg, force, progress, s.core.Embedder)
+		result = indexer.IndexCalibre(ctx, db.DB, cfg, force, progress, s.core.Embedder)
 	case len(cfg.Repositories[name]) > 0:
 		agg := &indexer.IndexResult{}
 		for _, repo := range indexer.ResolveRepoPaths(cfg.Repositories[name]) {
-			agg.Merge(indexer.IndexGitRepo(db.DB, cfg, repo, name, force,
+			agg.Merge(indexer.IndexGitRepo(ctx, db.DB, cfg, repo, name, force,
 				cfg.GitHistoryInMonths > 0, progress, s.core.Embedder))
+			if ctx.Err() != nil {
+				break
+			}
 		}
 		result = agg
 	case len(cfg.Projects[name]) > 0:
-		result = indexer.IndexProject(db.DB, cfg, name, cfg.Projects[name], force, progress, s.core.Embedder)
+		result = indexer.IndexProject(ctx, db.DB, cfg, name, cfg.Projects[name], force, progress, s.core.Embedder)
 	default:
 		result = &indexer.IndexResult{Errors: 1, ErrorMessages: []string{"collection not configured: " + name}}
+	}
+
+	if ctx.Err() != nil {
+		s.core.App.Event.Emit("indexing:cancelled", IndexCancelled{
+			Collection: name, Indexed: result.Indexed, Skipped: result.Skipped, Errors: result.Errors,
+		})
+		return
 	}
 
 	s.core.App.Event.Emit("indexing:complete", IndexComplete{

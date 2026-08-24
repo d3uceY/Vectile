@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -67,7 +68,7 @@ type FileChange struct {
 
 // IndexGitRepo indexes a git repository using tree-sitter for code parsing,
 // plus optional commit history.
-func IndexGitRepo(conn *sql.DB, cfg *config.Config, repoPath, collectionName string, force, indexHistory bool, progress ProgressCallback, embedder Embedder) *IndexResult {
+func IndexGitRepo(ctx context.Context, conn *sql.DB, cfg *config.Config, repoPath, collectionName string, force, indexHistory bool, progress ProgressCallback, embedder Embedder) *IndexResult {
 	repoPath, _ = filepath.Abs(repoPath)
 
 	if err := CheckNameConflict(cfg, collectionName); err != nil {
@@ -102,7 +103,7 @@ func IndexGitRepo(conn *sql.DB, cfg *config.Config, repoPath, collectionName str
 		if oldSHA == headSHA {
 			slog.Info("no new commits since last index", "sha", headSHA[:12])
 			if indexHistory {
-				return indexGitHistory(conn, cfg, repoPath, collectionID, force, cfg.GitHistoryInMonths, false, embedder)
+				return indexGitHistory(ctx, conn, cfg, repoPath, collectionID, force, cfg.GitHistoryInMonths, false, embedder)
 			}
 			return &IndexResult{}
 		}
@@ -141,7 +142,7 @@ func IndexGitRepo(conn *sql.DB, cfg *config.Config, repoPath, collectionName str
 	result := &IndexResult{TotalFound: len(indexable)}
 	cleared := clearRepoForRebuild(conn, collectionID, repoPath, force)
 
-	indexItemsBatched(conn, cfg, collectionID, collectionName, len(indexable),
+	indexItemsBatched(ctx, conn, cfg, collectionID, collectionName, len(indexable),
 		func(i int) *indexItem { return codeFileToItem(conn, cfg, repoPath, indexable[i], collectionID, force) },
 		embedder, result, progress, cleared)
 
@@ -157,7 +158,7 @@ func IndexGitRepo(conn *sql.DB, cfg *config.Config, repoPath, collectionName str
 	}
 
 	if indexHistory {
-		result.Merge(indexGitHistory(conn, cfg, repoPath, collectionID, force, cfg.GitHistoryInMonths, cleared, embedder))
+		result.Merge(indexGitHistory(ctx, conn, cfg, repoPath, collectionID, force, cfg.GitHistoryInMonths, cleared, embedder))
 	}
 	return result
 }
@@ -279,7 +280,7 @@ func codeBlocksToChunks(doc *parser.CodeDocument, relPath string, cfg *config.Co
 	return chunks
 }
 
-func indexGitHistory(conn *sql.DB, cfg *config.Config, repoPath string, collectionID int64, force bool, months int, cleared bool, embedder Embedder) *IndexResult {
+func indexGitHistory(ctx context.Context, conn *sql.DB, cfg *config.Config, repoPath string, collectionID int64, force bool, months int, cleared bool, embedder Embedder) *IndexResult {
 	historyKey := repoPath + ":history"
 
 	var desc sql.NullString
@@ -316,7 +317,7 @@ func indexGitHistory(conn *sql.DB, cfg *config.Config, repoPath string, collecti
 	result := &IndexResult{TotalFound: len(commits)}
 	newestSHA := commits[len(commits)-1].SHA
 
-	indexItemsBatched(conn, cfg, collectionID, "commits", len(commits),
+	indexItemsBatched(ctx, conn, cfg, collectionID, "commits", len(commits),
 		func(i int) *indexItem {
 			return commitToItem(conn, cfg, repoPath, repoPath, collectionID, commits[i], force)
 		},

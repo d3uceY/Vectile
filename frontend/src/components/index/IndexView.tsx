@@ -1,12 +1,14 @@
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { useAppStore } from "../../lib/store";
 import { Button, Chip, EmptyState, Toggle, ViewHeading } from "../ui/primitives";
 import { IndexIcon } from "../ui/icons";
+import { IndexProgressBar } from "./IndexProgressBar";
 
 type Configured = { name: string; type: string; enabled: boolean };
 
 export function IndexView() {
   const store = useAppStore();
+  const [confirming, setConfirming] = createSignal<string | null>(null);
 
   const configured = (): Configured[] => {
     const cfg = store.config();
@@ -25,8 +27,7 @@ export function IndexView() {
   };
 
   const dbCol = (name: string) => store.collections().find((c) => c.name === name);
-  const progress = store.indexProgress();
-  const pct = progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+  const progressOf = (name: string) => store.indexByCollection()[name];
 
   return (
     <div class="relative flex h-full flex-col">
@@ -35,20 +36,6 @@ export function IndexView() {
           Index all
         </Button>
       </ViewHeading>
-
-      {/* Live progress */}
-      <Show when={store.indexing() && progress}>
-        <div class="sheet mb-5 p-5">
-          <div class="mb-2 flex items-center justify-between gap-3">
-            <span class="data text-leaf-deep">indexing {progress!.collection}</span>
-            <span class="data text-faint">{pct}% · {progress!.current}/{progress!.total}</span>
-          </div>
-          <div class="h-1.5 w-full overflow-hidden rounded-full bg-surface">
-            <div class="h-full rounded-full bg-leaf transition-[width] duration-200 ease-snappy" style={{ width: `${pct}%` }} />
-          </div>
-          <p class="data mt-2 truncate text-muted">{progress!.item}</p>
-        </div>
-      </Show>
 
       {/* Last run summary */}
       <Show when={!store.indexing() && store.indexLast()}>
@@ -85,44 +72,92 @@ export function IndexView() {
           <For each={configured()}>
             {(item) => {
               const col = () => dbCol(item.name);
+              const prog = () => progressOf(item.name);
               return (
-                <div class="sheet flex flex-wrap items-center gap-x-5 gap-y-3 p-5">
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2">
-                      <span class="title truncate text-[15px] tracking-[-0.01em] text-ink">{item.name}</span>
-                      <Chip tone={item.type === "code" ? "code" : "neutral"}>{item.type}</Chip>
-                      {!item.enabled && <Chip>disabled</Chip>}
+                <div class="sheet p-5">
+                  <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2">
+                        <span class="title truncate text-[15px] tracking-[-0.01em] text-ink">{item.name}</span>
+                        <Chip tone={item.type === "code" ? "code" : "neutral"}>{item.type}</Chip>
+                        {!item.enabled && <Chip>disabled</Chip>}
+                      </div>
+                      <p class="data mt-1 text-faint">
+                        {col() ? `${col()!.sources} sources · ${col()!.chunks.toLocaleString()} chunks` : "not indexed yet"}
+                      </p>
                     </div>
-                    <p class="data mt-1 text-faint">
-                      {col() ? `${col()!.sources} sources · ${col()!.chunks.toLocaleString()} chunks` : "not indexed yet"}
-                    </p>
+                    <div class="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        disabled={store.indexing() || !item.enabled}
+                        onClick={() => store.startIndex(item.name, false)}
+                      >
+                        Index
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={store.indexing() || !item.enabled}
+                        onClick={() => store.startIndex(item.name, true)}
+                      >
+                        Re-index
+                      </Button>
+                      <Button size="sm" variant="ghost" disabled={store.indexing()} onClick={() => store.runPrune(item.name)}>
+                        Prune
+                      </Button>
+                      <Toggle checked={item.enabled} onChange={(v) => store.toggleCollection(item.name, v)} label="Enabled" />
+                    </div>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      disabled={store.indexing() || !item.enabled}
-                      onClick={() => store.startIndex(item.name, false)}
-                    >
-                      Index
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={store.indexing() || !item.enabled}
-                      onClick={() => store.startIndex(item.name, true)}
-                    >
-                      Re-index
-                    </Button>
-                    <Button size="sm" variant="ghost" disabled={store.indexing()} onClick={() => store.runPrune(item.name)}>
-                      Prune
-                    </Button>
-                    <Toggle checked={item.enabled} onChange={(v) => store.toggleCollection(item.name, v)} label="Enabled" />
-                  </div>
+
+                  {/* Inline loader on the dir being indexed */}
+                  <Show when={prog()}>
+                    {(p) => (
+                      <div class="mt-4">
+                        <IndexProgressBar
+                          collection={item.name}
+                          current={p().indexed}
+                          total={p().total}
+                          file={p().file}
+                          onCancel={() => setConfirming(item.name)}
+                        />
+                      </div>
+                    )}
+                  </Show>
                 </div>
               );
             }}
           </For>
+        </div>
+      </Show>
+
+      {/* Cancel-indexing warning */}
+      <Show when={confirming()}>
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 p-4"
+          onClick={() => setConfirming(null)}
+        >
+          <div class="sheet w-[22rem] p-5 shadow-pop" onClick={(e) => e.stopPropagation()}>
+            <h3 class="title text-[15px] tracking-[-0.01em] text-ink">Cancel indexing {confirming()}?</h3>
+            <p class="read mt-2 text-[13.5px] leading-5 text-muted">
+              Files already indexed are kept. The rest of this run will stop.
+            </p>
+            <div class="mt-4 flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setConfirming(null)}>
+                Keep going
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  void store.cancelIndex();
+                  setConfirming(null);
+                }}
+                class="inline-flex h-8 select-none items-center justify-center gap-2 rounded-control bg-danger px-3 text-[13px] font-medium text-white transition-all duration-150 ease-snappy active:scale-[0.98]"
+              >
+                Cancel run
+              </button>
+            </div>
+          </div>
         </div>
       </Show>
     </div>

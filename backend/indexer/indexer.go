@@ -4,6 +4,7 @@
 package indexer
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
@@ -389,7 +390,7 @@ func fileToItem(conn *sql.DB, cfg *config.Config, filePath string, collectionID 
 
 // IndexProject indexes documents from file paths into a named project
 // collection.
-func IndexProject(conn *sql.DB, cfg *config.Config, collectionName string, paths []string, force bool, progress ProgressCallback, embedder Embedder) *IndexResult {
+func IndexProject(ctx context.Context, conn *sql.DB, cfg *config.Config, collectionName string, paths []string, force bool, progress ProgressCallback, embedder Embedder) *IndexResult {
 	if err := CheckNameConflict(cfg, collectionName); err != nil {
 		slog.Error("refusing to index", "name", collectionName, "err", err)
 		return failedResult(err)
@@ -406,7 +407,7 @@ func IndexProject(conn *sql.DB, cfg *config.Config, collectionName string, paths
 	cleared := clearForRebuild(conn, collectionID, force)
 
 	slog.Info("project indexer: found files", "count", len(files), "collection", collectionName)
-	indexItemsBatched(conn, cfg, collectionID, collectionName, len(files),
+	indexItemsBatched(ctx, conn, cfg, collectionID, collectionName, len(files),
 		func(i int) *indexItem { return fileToItem(conn, cfg, files[i], collectionID, force) },
 		embedder, result, progress, cleared)
 	return result

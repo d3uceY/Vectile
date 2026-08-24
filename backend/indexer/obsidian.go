@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"os"
@@ -19,7 +20,7 @@ var obsidianSkipDirs = map[string]bool{
 }
 
 // IndexObsidian indexes all supported files in Obsidian vaults.
-func IndexObsidian(conn *sql.DB, cfg *config.Config, force bool, progress ProgressCallback, embedder Embedder) *IndexResult {
+func IndexObsidian(ctx context.Context, conn *sql.DB, cfg *config.Config, force bool, progress ProgressCallback, embedder Embedder) *IndexResult {
 	collectionID, err := getOrCreate(conn, "obsidian", "system")
 	if err != nil {
 		return failedResult(err)
@@ -45,7 +46,7 @@ func IndexObsidian(conn *sql.DB, cfg *config.Config, force bool, progress Progre
 	result := &IndexResult{TotalFound: len(allFiles)}
 	cleared := clearForRebuild(conn, collectionID, force)
 
-	indexItemsBatched(conn, cfg, collectionID, "obsidian", len(allFiles),
+	indexItemsBatched(ctx, conn, cfg, collectionID, "obsidian", len(allFiles),
 		func(i int) *indexItem { return fileToItem(conn, cfg, allFiles[i], collectionID, force) },
 		embedder, result, progress, cleared)
 	return result

@@ -13,7 +13,7 @@ const typeOptions = [
   { value: "email", label: "Email" },
   { value: "pdf", label: "PDF" },
   { value: "epub", label: "EPUB" },
-  { value: "txt", label: "Plain text" },
+  { value: "plaintext", label: "Plain text" }, // must match backend source_type
   { value: "code", label: "Code" },
   { value: "rss", label: "RSS" },
 ];
@@ -31,6 +31,10 @@ export function SearchView() {
   const [value, setValue] = createSignal<string>(store.query());
   const [showAdvanced, setShowAdvanced] = createSignal(false);
   const [debounce, setDebounce] = createSignal<number | null>(null);
+  // Separate debounce for the free-text filter fields (path/sender/author):
+  // each keystroke used to fire a full embedding-backed search, which felt
+  // like the filter wasn't searching at all.
+  const [filterDebounce, setFilterDebounce] = createSignal<number | null>(null);
 
   const collectionOptions = () => [
     { value: "", label: "All collections" },
@@ -45,22 +49,33 @@ export function SearchView() {
     );
   };
 
-  const applyFilter = (patch: Partial<SearchFilters>) => {
+  const applyFilter = (patch: Partial<SearchFilters>, debounced = false) => {
     const next = { ...store.filters(), ...patch };
-    // Explicit action: run now, and drop any pending typing debounce so it
-    // doesn't fire a redundant duplicate search right after.
+    // Drop any pending query-typing debounce so a filter change isn't
+    // immediately overwritten by a redundant duplicate search.
     window.clearTimeout(debounce() ?? undefined);
-    store.runSearch(value(), next);
+    if (!debounced) {
+      window.clearTimeout(filterDebounce() ?? undefined);
+      store.runSearch(value(), next);
+      return;
+    }
+    // Free-text filters search once the user pauses typing.
+    window.clearTimeout(filterDebounce() ?? undefined);
+    setFilterDebounce(
+      window.setTimeout(() => store.runSearch(value(), next), SEARCH_DEBOUNCE_MS),
+    );
   };
 
   const clearAll = () => {
     window.clearTimeout(debounce() ?? undefined);
+    window.clearTimeout(filterDebounce() ?? undefined);
     setValue("");
     store.clearSearch();
   };
 
   const pickExample = (q: string) => {
     window.clearTimeout(debounce() ?? undefined);
+    window.clearTimeout(filterDebounce() ?? undefined);
     setValue(q);
     store.runSearch(q, store.filters());
   };
@@ -148,7 +163,7 @@ export function SearchView() {
                 class="h-8 w-full rounded-control border border-line bg-paper px-3 text-[13px] outline-none placeholder:text-faint focus:border-leaf"
                 placeholder="e.g. rustyquill"
                 value={store.filters().path ?? ""}
-                onInput={(e) => applyFilter({ path: e.currentTarget.value })}
+                onInput={(e) => applyFilter({ path: e.currentTarget.value }, true)}
               />
             </FilterField>
             <FilterField label="Sender / author">
@@ -156,7 +171,7 @@ export function SearchView() {
                 class="h-8 w-full rounded-control border border-line bg-paper px-3 text-[13px] outline-none placeholder:text-faint focus:border-leaf"
                 placeholder="e.g. orders@…"
                 value={store.filters().sender ?? ""}
-                onInput={(e) => applyFilter({ sender: e.currentTarget.value })}
+                onInput={(e) => applyFilter({ sender: e.currentTarget.value }, true)}
               />
             </FilterField>
             <FilterField label="From">

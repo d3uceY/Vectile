@@ -3,6 +3,7 @@
 package services
 
 import (
+	"context"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -23,6 +24,40 @@ type Core struct {
 
 	indexMu  sync.Mutex // serializes index/prune runs
 	indexing bool
+
+	// cancelMu guards the active run's cancel func, so the user can abort an
+	// index from the frontend between batches.
+	cancelMu sync.Mutex
+	cancel   context.CancelFunc
+}
+
+// newIndexContext creates a cancellable context for a new index run and
+// registers its cancel func for CancelIndexing.
+func (c *Core) newIndexContext() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancelMu.Lock()
+	c.cancel = cancel
+	c.cancelMu.Unlock()
+	return ctx
+}
+
+// clearIndexContext drops the active cancel func once a run finishes.
+func (c *Core) clearIndexContext() {
+	c.cancelMu.Lock()
+	c.cancel = nil
+	c.cancelMu.Unlock()
+}
+
+// cancelIndex aborts the active index run, if any, and reports whether one
+// was running.
+func (c *Core) cancelIndex() bool {
+	c.cancelMu.Lock()
+	defer c.cancelMu.Unlock()
+	if c.cancel == nil {
+		return false
+	}
+	c.cancel()
+	return true
 }
 
 // Status is the app-wide status summary shown in the UI.
@@ -85,4 +120,22 @@ type IndexComplete struct {
 	Skipped    int      `json:"skipped"`
 	Errors     int      `json:"errors"`
 	Messages   []string `json:"messages"`
+}
+
+// IndexFileProgress is emitted per successfully indexed file during a run,
+// scoped to the collection being indexed so the frontend can increment its
+// per-collection file count.
+type IndexFileProgress struct {
+	Collection string `json:"collection"`
+	File       string `json:"file"`
+	Indexed    int    `json:"indexed"`
+	Total      int    `json:"total"`
+}
+
+// IndexCancelled is emitted when an index run is cancelled by the user.
+type IndexCancelled struct {
+	Collection string `json:"collection"`
+	Indexed    int    `json:"indexed"`
+	Skipped    int    `json:"skipped"`
+	Errors     int    `json:"errors"`
 }

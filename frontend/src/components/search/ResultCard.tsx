@@ -67,7 +67,7 @@ export function ResultCard(props: { result: SearchResult; terms: string[] }) {
         <h3 class="title text-[15px] leading-6 tracking-[-0.005em] text-ink">
           <Highlighted text={r().title} terms={props.terms} />
         </h3>
-        <span class="data mt-1 shrink-0 text-leaf-deep">{r().score.toFixed(2)}</span>
+        <span class="data mt-1 shrink-0 text-leaf-deep">{Math.round(r().score * 100)}%</span>
       </div>
 
       <p class="read mt-1.5 line-clamp-3 text-[14.5px] leading-[1.6] text-muted">

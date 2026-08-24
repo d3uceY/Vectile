@@ -68,12 +68,17 @@ export async function toggleCollectionEnabled(name: string, enabled: boolean): P
   return IndexService.ToggleCollectionEnabled(name, enabled);
 }
 
-export async function indexCollection(name: string, force = false): Promise<void> {
-  return IndexService.IndexCollection(name, force);
+export async function indexCollection(name: string, force = false): Promise<boolean> {
+  // true = the run started; false = another index is already in progress.
+  return IndexService.IndexCollection(name, force) as unknown as boolean;
 }
 
-export async function indexAll(force = false): Promise<void> {
-  return IndexService.IndexAll(force);
+export async function indexAll(force = false): Promise<boolean> {
+  return IndexService.IndexAll(force) as unknown as boolean;
+}
+
+export async function cancelIndexing(): Promise<boolean> {
+  return IndexService.CancelIndexing() as unknown as boolean;
 }
 
 export async function prune(name: string): Promise<void> {

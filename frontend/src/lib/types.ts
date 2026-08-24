@@ -132,3 +132,19 @@ export interface IndexComplete {
   errors: number;
   messages: string[];
 }
+
+/** Mirrors services.IndexFileProgress — emitted per indexed file. */
+export interface IndexFileProgress {
+  collection: string;
+  file: string;
+  indexed: number;
+  total: number;
+}
+
+/** Mirrors services.IndexCancelled — emitted when a run is cancelled. */
+export interface IndexCancelled {
+  collection: string;
+  indexed: number;
+  skipped: number;
+  errors: number;
+}

@@ -26,6 +26,14 @@ export function AddSourcePath(kind: string, name: string, path: string): $Cancel
 }
 
 /**
+ * CancelIndexing aborts the active index run, if any, and reports whether one
+ * was running.
+ */
+export function CancelIndexing(): $CancellablePromise<boolean> {
+    return $Call.ByID(4016222948);
+}
+
+/**
  * GetConfig returns the current configuration.
  */
 export function GetConfig(): $CancellablePromise<config$0.Config | null> {
@@ -37,15 +45,18 @@ export function GetConfig(): $CancellablePromise<config$0.Config | null> {
 /**
  * IndexAll starts pruning + indexing every enabled, configured collection.
  */
-export function IndexAll(force: boolean): $CancellablePromise<void> {
+export function IndexAll(force: boolean): $CancellablePromise<boolean> {
     return $Call.ByID(2589092493, force);
 }
 
 /**
  * IndexCollection starts indexing one collection in the background, emitting
- * indexing:progress and indexing:complete events.
+ * indexing:file, indexing:progress, and indexing:complete / indexing:cancelled
+ * events. Returns false when another index run is already in progress, so the
+ * frontend never gets stuck in an "indexing" state for a run that never
+ * actually started.
  */
-export function IndexCollection(name: string, force: boolean): $CancellablePromise<void> {
+export function IndexCollection(name: string, force: boolean): $CancellablePromise<boolean> {
     return $Call.ByID(180963702, name, force);
 }
 

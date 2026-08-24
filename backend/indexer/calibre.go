@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
@@ -16,7 +17,7 @@ var preferredFormats = []string{"EPUB", "PDF"}
 
 // IndexCalibre indexes ebooks from Calibre libraries into the "calibre"
 // collection.
-func IndexCalibre(conn *sql.DB, cfg *config.Config, force bool, progress ProgressCallback, embedder Embedder) *IndexResult {
+func IndexCalibre(ctx context.Context, conn *sql.DB, cfg *config.Config, force bool, progress ProgressCallback, embedder Embedder) *IndexResult {
 	collectionID, err := getOrCreate(conn, "calibre", "system")
 	if err != nil {
 		return failedResult(err)
@@ -49,7 +50,7 @@ func IndexCalibre(conn *sql.DB, cfg *config.Config, force bool, progress Progres
 	result := &IndexResult{TotalFound: len(allBooks)}
 	cleared := clearForRebuild(conn, collectionID, force)
 
-	indexItemsBatched(conn, cfg, collectionID, "calibre", len(allBooks),
+	indexItemsBatched(ctx, conn, cfg, collectionID, "calibre", len(allBooks),
 		func(i int) *indexItem {
 			return bookToItem(conn, cfg, collectionID, allBooks[i].libraryPath, allBooks[i].book, force)
 		},

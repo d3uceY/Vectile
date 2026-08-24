@@ -81,8 +81,9 @@ func main() {
 	}
 
 	// Auto-reindex: poll the config each minute; fire an index-all when the
-	// interval has elapsed. Shares the same mutex as manual index runs.
-	go autoReindexLoop(cfg, core)
+	// interval has elapsed. Shares the same mutex as manual index runs. The
+	// loop reads core.Cfg live so settings changes apply without a restart.
+	go autoReindexLoop(core)
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
@@ -93,19 +94,20 @@ func main() {
 	_ = db.Close()
 }
 
-// autoReindexLoop reads the config live so settings changes take effect on the
-// next tick without restarting the loop.
-func autoReindexLoop(cfg *config.Config, core *services.Core) {
+// autoReindexLoop reads core.Cfg live so settings changes (auto-reindex toggle
+// and interval) take effect on the next tick without restarting the loop.
+func autoReindexLoop(core *services.Core) {
 	svc := services.NewIndexService(core)
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
 	var last time.Time
 	for range ticker.C {
-		if !cfg.GUI.AutoReindex {
+		c := core.Cfg
+		if !c.GUI.AutoReindex {
 			continue
 		}
-		interval := time.Duration(cfg.GUI.AutoReindexIntervalMinutes) * time.Minute
+		interval := time.Duration(c.GUI.AutoReindexIntervalMinutes) * time.Minute
 		if interval < time.Minute {
 			interval = time.Minute
 		}

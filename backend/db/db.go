@@ -23,12 +23,22 @@ func Open(path string) error {
 	if err != nil {
 		return err
 	}
-	conn.SetMaxOpenConns(1)
-	conn.SetMaxIdleConns(1)
+	// WAL + a small connection pool let readers (search/browse/status) proceed
+	// while the single writer — the indexer goroutine, serialized by the index
+	// mutex — holds a write transaction. With MaxOpenConns(1) a long or stuck
+	// write previously blocked every read, freezing the whole app.
+	conn.SetMaxOpenConns(4)
+	conn.SetMaxIdleConns(4)
 	if err := conn.Ping(); err != nil {
 		return err
 	}
 	if _, err := conn.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		return err
+	}
+	if _, err := conn.Exec(`PRAGMA journal_mode = WAL`); err != nil {
+		return err
+	}
+	if _, err := conn.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
 		return err
 	}
 	DB = conn

@@ -398,7 +398,10 @@ func passesFilters(db *sql.DB, documentID int64, filters *Filters) bool {
 	return true
 }
 
-// RRFMerge merges two ranked lists using Reciprocal Rank Fusion.
+// RRFMerge merges two ranked lists using Reciprocal Rank Fusion, then
+// normalizes the fused scores to [0, 1] so the best possible hit (rank 0 in
+// both lists) reads as ~1.0. Ordering is unchanged — only the magnitude the
+// frontend displays changes.
 func RRFMerge(vecResults, ftsResults []rankedResult, k int, vectorWeight, ftsWeight float64) []rankedResult {
 	scores := make(map[int64]float64)
 
@@ -409,9 +412,19 @@ func RRFMerge(vecResults, ftsResults []rankedResult, k int, vectorWeight, ftsWei
 		scores[r.docID] += ftsWeight / float64(k+rank+1)
 	}
 
+	// Normalize by the maximum achievable score: rank 0 in both lists.
+	denomBase := float64(k + 1)
+	if denomBase <= 0 {
+		denomBase = 1
+	}
+	denom := (vectorWeight + ftsWeight) / denomBase
+	if denom <= 0 {
+		denom = 1
+	}
+
 	merged := make([]rankedResult, 0, len(scores))
 	for docID, score := range scores {
-		merged = append(merged, rankedResult{docID: docID, score: score})
+		merged = append(merged, rankedResult{docID: docID, score: score / denom})
 	}
 	sort.Slice(merged, func(i, j int) bool { return merged[i].score > merged[j].score })
 	return merged
