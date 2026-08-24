@@ -16,21 +16,21 @@ export function StatusStrip() {
   const onSearch = () => store.view() !== "search" && store.focusSearch();
 
   return (
-    <header class="flex h-13 shrink-0 items-center justify-between border-b border-line bg-paper/70 px-6">
-      <div class="flex items-center gap-4">
-        <span class="data text-faint">all local</span>
-        <span class="h-3 w-px bg-line-strong" aria-hidden="true" />
-        <span class="data text-faint">
+    <header class="flex h-13 shrink-0 items-center justify-between gap-3 border-b border-line bg-paper/70 px-6">
+      <div class="flex min-w-0 items-center gap-4">
+        <span class="data shrink-0 text-faint">all local</span>
+        <span class="h-3 w-px shrink-0 bg-line-strong" aria-hidden="true" />
+        <span class="data truncate text-faint">
           {totals().collections} collections · {totals().chunks.toLocaleString()} chunks ·{" "}
           {totals().size}
         </span>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex shrink-0 items-center gap-3">
         <button
           class="flex items-center gap-2 rounded-control px-2 py-1 text-[12.5px] text-muted transition-colors hover:bg-surface hover:text-ink"
           onClick={onSearch}
         >
-          Jump to search
+          <span class="hidden md:inline">Jump to search</span>
           <Kbd>{navigator.platform.toLowerCase().includes("mac") ? "⌘K" : "Ctrl K"}</Kbd>
         </button>
       </div>

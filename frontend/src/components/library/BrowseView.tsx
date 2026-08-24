@@ -59,47 +59,53 @@ export function BrowseView() {
         />
       </div>
 
-      <div class="relative grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-4">
-        {/* Tree */}
-        <div class="sheet scroll-quiet min-h-0 overflow-y-auto p-3">
-          <FileTree
-            elements={tree()}
-            initialSelectedId={doc()?.id}
-            initialExpandedItems={initialExpanded()}
-            onSelect={onSelect}
-            showExpandAll
-          />
-        </div>
+      {/* Side-by-side when there's room; stacked panes when the content
+          column gets tight (container query, not viewport — so it tracks
+          whatever the sidebar and padding leave us). The container lives on
+          a wrapper: an element can't query its own container. */}
+      <div class="relative @container min-h-0 flex-1">
+        <div class="flex h-full min-h-0 flex-col gap-4 @lg:grid @lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+          {/* Tree */}
+          <div class="sheet scroll-quiet min-h-0 flex-1 overflow-y-auto p-3">
+            <FileTree
+              elements={tree()}
+              initialSelectedId={doc()?.id}
+              initialExpandedItems={initialExpanded()}
+              onSelect={onSelect}
+              showExpandAll
+            />
+          </div>
 
-        {/* Preview */}
-        <Show when={doc()} fallback={<div class="sheet" />}>
-          {(d) => (
-            <div class="sheet flex min-h-0 flex-col overflow-hidden">
-              <div class="border-b border-line bg-surface/50 px-5 py-4">
-                <h3 class="text-[16px] font-semibold leading-6 tracking-[-0.005em] text-ink">
-                  {d().title}
-                </h3>
-                <p class="data mt-1.5 truncate text-faint">{sourcePathFor(d())}</p>
-                <div class="mt-3 flex flex-wrap items-center gap-1.5">
-                  <Chip tone="mint">{d().collectionId}</Chip>
-                  <span class="data text-faint">
-                    chunk {d().chunkIndex + 1}
-                  </span>
-                  <Show when={typeof d().metadata.tags !== "undefined"}>
+          {/* Preview */}
+          <Show when={doc()} fallback={<div class="sheet min-h-0 flex-1" />}>
+            {(d) => (
+              <div class="sheet flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div class="border-b border-line bg-surface/50 px-5 py-4">
+                  <h3 class="text-[16px] font-semibold leading-6 tracking-[-0.005em] text-ink">
+                    {d().title}
+                  </h3>
+                  <p class="data mt-1.5 truncate text-faint">{sourcePathFor(d())}</p>
+                  <div class="mt-3 flex flex-wrap items-center gap-1.5">
+                    <Chip tone="mint">{d().collectionId}</Chip>
                     <span class="data text-faint">
-                      {(d().metadata.tags as string[]).map((t) => `#${t}`).join(" ")}
+                      chunk {d().chunkIndex + 1}
                     </span>
-                  </Show>
+                    <Show when={typeof d().metadata.tags !== "undefined"}>
+                      <span class="data text-faint">
+                        {(d().metadata.tags as string[]).map((t) => `#${t}`).join(" ")}
+                      </span>
+                    </Show>
+                  </div>
+                </div>
+                <div class="scroll-quiet min-h-0 flex-1 overflow-y-auto p-5">
+                  <p class="whitespace-pre-wrap text-[13.5px] leading-[1.65] text-ink-soft">
+                    {d().content}
+                  </p>
                 </div>
               </div>
-              <div class="scroll-quiet min-h-0 flex-1 overflow-y-auto p-5">
-                <p class="whitespace-pre-wrap text-[13.5px] leading-[1.65] text-ink-soft">
-                  {d().content}
-                </p>
-              </div>
-            </div>
-          )}
-        </Show>
+            )}
+          </Show>
+        </div>
       </div>
     </div>
   );

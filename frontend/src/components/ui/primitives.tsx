@@ -135,16 +135,31 @@ const modelCopy: Record<ModelState, { label: string; dot: string; text: string }
   failed: { label: "model failed", dot: "bg-danger", text: "text-danger" },
 };
 
-export function StatusPill(props: { state: ModelState; name?: string }) {
+export function StatusPill(props: {
+  state: ModelState;
+  name?: string;
+  compact?: boolean;
+}) {
   const m = () => modelCopy[props.state];
+  const tip = props.name ? `${m().label} · ${props.name}` : m().label;
+  const dot = (
+    <span class="relative flex h-2 w-2">
+      <span class={`h-2 w-2 rounded-full ${m().dot} ${props.state === "loaded" ? "pulse-dot" : ""}`} />
+    </span>
+  );
+  if (props.compact) {
+    return (
+      <span class="inline-flex" title={tip}>
+        {dot}
+      </span>
+    );
+  }
   return (
     <span
       class={`inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1 ${m().text}`}
-      title={props.name}
+      title={tip}
     >
-      <span class="relative flex h-2 w-2">
-        <span class={`h-2 w-2 rounded-full ${m().dot} ${props.state === "loaded" ? "pulse-dot" : ""}`} />
-      </span>
+      {dot}
       <span class="data">{m().label}</span>
       {props.name && <span class="data text-faint">· {props.name}</span>}
     </span>

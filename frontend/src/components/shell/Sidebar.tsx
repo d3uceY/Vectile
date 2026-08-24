@@ -21,16 +21,22 @@ const NAV: { id: ViewId; label: string; icon: (p: { size?: number }) => JSX.Elem
 export function Sidebar() {
   const store = useAppStore();
   return (
-    <aside class="flex w-56 shrink-0 flex-col border-r border-line bg-paper/80">
+    /* Full sidebar with labels at md+; collapses to an icon rail below so a
+       narrow window still leaves room for the content column. */
+    <aside class="flex w-16 shrink-0 flex-col border-r border-line bg-paper/80 md:w-56">
       {/* Wordmark */}
-      <div class="px-5 pb-5 pt-6">
-        <div class="flex items-center gap-1.5">
-          <span class="text-[19px] font-bold leading-none tracking-[-0.02em] text-ink">
+      <div class="flex flex-col items-center gap-1 pb-5 pt-6 md:block md:px-5">
+        <div class="flex items-center justify-center gap-2 md:justify-start">
+          <img
+            src="/vectile-logo.png"
+            alt="vectile"
+            class="h-5 w-5 shrink-0 rounded-[5px]"
+          />
+          <span class="hidden text-[19px] font-bold leading-none tracking-[-0.02em] text-ink md:inline">
             vectile
           </span>
-          <span class="mb-1 h-1.5 w-1.5 rounded-full bg-leaf" aria-hidden="true" />
         </div>
-        <p class="note mt-2 text-[13px] leading-5 text-muted">your private library</p>
+        <p class="note mt-2 hidden text-[13px] leading-5 text-muted md:block">your private library</p>
       </div>
 
       {/* Nav */}
@@ -43,18 +49,20 @@ export function Sidebar() {
               return (
                 <li>
                   <button
-                    class={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-1.75 text-left text-[13.5px] font-medium transition-colors duration-150 ease-snappy ${
+                    class={`group relative flex w-full items-center justify-center gap-3 rounded-lg px-0 py-1.75 text-left text-[13.5px] font-medium transition-colors duration-150 ease-snappy md:justify-start md:px-3 ${
                       active()
                         ? "bg-mint text-leaf-deep"
                         : "text-ink-soft hover:bg-surface hover:text-ink"
                     }`}
                     aria-current={active() ? "page" : undefined}
+                    aria-label={item.label}
+                    title={item.label}
                     onClick={() => store.setView(item.id)}
                   >
                     <span class={active() ? "text-leaf" : "text-faint group-hover:text-ink-soft"}>
                       <Icon size={17} />
                     </span>
-                    {item.label}
+                    <span class="hidden md:inline">{item.label}</span>
                     {active() && (
                       <span
                         class="absolute left-0 top-1/2 h-4 w-0.75 -translate-y-1/2 rounded-full bg-leaf"
@@ -69,9 +77,16 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Footer: model engine state */}
-      <div class="border-t border-line px-5 py-4">
-        <StatusPill state={store.modelState()} name={store.modelName()} />
+      {/* Footer: model engine state — dot only in the icon rail */}
+      <div class="border-t border-line py-4 md:px-5">
+        <div class="flex justify-center md:justify-start">
+          <span class="md:hidden">
+            <StatusPill compact state={store.modelState()} name={store.modelName()} />
+          </span>
+          <span class="hidden md:block">
+            <StatusPill state={store.modelState()} name={store.modelName()} />
+          </span>
+        </div>
       </div>
     </aside>
   );

@@ -35,7 +35,7 @@ export function AppShell() {
       <div class="relative flex min-w-0 flex-1 flex-col">
         <StatusStrip />
         <main class="scroll-quiet relative flex-1 overflow-y-auto">
-          <div class="relative mx-auto h-full w-full max-w-[61.25rem] px-8 py-7">
+          <div class="relative mx-auto h-full w-full max-w-[61.25rem] px-5 py-7 md:px-8">
             <Show when={store.view() === "search"}>
               <SearchView />
             </Show>
