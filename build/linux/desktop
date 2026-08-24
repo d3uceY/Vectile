@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=My Product
+Comment=A vectile application
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/vectile.exe %u
+Terminal=false
+Type=Application
+Icon=vectile.exe
+Categories=Utility;
+StartupWMClass=vectile.exe
+
+ 
