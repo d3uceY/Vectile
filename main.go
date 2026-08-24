@@ -2,43 +2,48 @@ package main
 
 import (
 	"embed"
-
 	"log"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-)
 
-// Wails uses Go's `embed` package to embed the frontend files into the binary.
-// Any files in the frontend/dist folder will be embedded into the binary and
-// made available to the frontend.
-// See https://pkg.go.dev/embed for more information.
+	"vectile/backend/appdata"
+	"vectile/backend/config"
+	"vectile/backend/db"
+	"vectile/backend/embeddings"
+	"vectile/backend/parser"
+	"vectile/backend/services"
+	"vectile/backend/startup"
+)
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
-func init() {
-	// Register a custom event whose associated data type is string.
-	// This is not required, but the binding generator will pick up registered events
-	// and provide a strongly typed JS/TS API for them.
-	application.RegisterEvent[string]("time")
-}
-
-// main function serves as the application's entry point. It initializes the application, creates a window,
-// and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
-// logs any error that might occur.
 func main() {
+	// Resolve the app-data directory first so config, db/, and models/ have a
+	// home. The embedding model is expected to already be in models/.
+	if _, err := appdata.Init(); err != nil {
+		log.Fatalf("appdata init: %v", err)
+	}
 
-	// Create a new Wails application by providing the necessary options.
-	// Variables 'Name' and 'Description' are for application metadata.
-	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
-	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
-	// 'Mac' options tailor the application when running an macOS.
+	cfg, err := config.Load(appdata.ConfigPath())
+	if err != nil {
+		log.Fatalf("config load: %v", err)
+	}
+
+	core := &services.Core{
+		Cfg:      cfg,
+		CfgPath:  appdata.ConfigPath(),
+		Embedder: embeddings.NewEmbedder(appdata.ModelPath()),
+	}
+
 	app := application.New(application.Options{
 		Name:        "vectile",
 		Description: "A local, private search across everything you've written, read, and kept.",
 		Services: []application.Service{
-			application.NewService(&GreetService{}),
+			application.NewService(services.NewAppService(core)),
+			application.NewService(services.NewSearchService(core)),
+			application.NewService(services.NewIndexService(core)),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -47,12 +52,14 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 	})
+	core.App = app
 
-	// Create a new window with the necessary options.
-	// 'Title' is the title of the window.
-	// 'Mac' options tailor the window when running on macOS.
-	// 'BackgroundColour' is the background colour of the window.
-	// 'URL' is the URL that will be loaded into the webview.
+	if cfg.GUI.StartOnLogin {
+		if enabled, _ := startup.IsEnabled(); !enabled {
+			_ = startup.Enable()
+		}
+	}
+
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "vectile",
 		Width:     1180,
@@ -68,21 +75,44 @@ func main() {
 		URL:              "/",
 	})
 
-	// Create a goroutine that emits an event containing the current time every second.
-	// The frontend can listen to this event and update the UI accordingly.
-	go func() {
-		for {
-			now := time.Now().Format(time.RFC1123)
-			app.Event.Emit("time", now)
-			time.Sleep(time.Second)
-		}
-	}()
+	// Open the database and apply the schema once the app is wired up.
+	if err := db.Open(appdata.DBPath()); err != nil {
+		log.Fatalf("db open: %v", err)
+	}
 
-	// Run the application. This blocks until the application has been exited.
-	err := app.Run()
+	// Auto-reindex: poll the config each minute; fire an index-all when the
+	// interval has elapsed. Shares the same mutex as manual index runs.
+	go autoReindexLoop(cfg, core)
 
-	// If an error occurred while running the application, log it and exit.
-	if err != nil {
+	if err := app.Run(); err != nil {
 		log.Fatal(err)
+	}
+
+	parser.ClosePDFPool()
+	core.Embedder.Close()
+	_ = db.Close()
+}
+
+// autoReindexLoop reads the config live so settings changes take effect on the
+// next tick without restarting the loop.
+func autoReindexLoop(cfg *config.Config, core *services.Core) {
+	svc := services.NewIndexService(core)
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	var last time.Time
+	for range ticker.C {
+		if !cfg.GUI.AutoReindex {
+			continue
+		}
+		interval := time.Duration(cfg.GUI.AutoReindexIntervalMinutes) * time.Minute
+		if interval < time.Minute {
+			interval = time.Minute
+		}
+		if !last.IsZero() && time.Since(last) < interval {
+			continue
+		}
+		last = time.Now()
+		svc.IndexAll(false)
 	}
 }

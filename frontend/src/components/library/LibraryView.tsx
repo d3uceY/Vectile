@@ -1,24 +1,23 @@
 import { For, Show } from "solid-js";
 import { useAppStore } from "../../lib/store";
-import { mockSources } from "../../lib/mock";
-import type { CollectionType } from "../../lib/types";
 import { ChevronDown, LibraryIcon } from "../ui/icons";
 import { Chip, ViewHeading } from "../ui/primitives";
 import { GridPattern } from "../ui/patterns";
 
-const typeLabel: Record<CollectionType, string> = {
+const typeLabel: Record<string, string> = {
   system: "system",
   project: "project",
   code: "code",
 };
 
-function TypeBadge(props: { type: CollectionType }) {
+function TypeBadge(props: { type: string }) {
+  const label = typeLabel[props.type] ?? props.type;
   return props.type === "code" ? (
-    <Chip tone="code">{typeLabel[props.type]}</Chip>
+    <Chip tone="code">{label}</Chip>
   ) : props.type === "project" ? (
-    <Chip tone="mint">{typeLabel[props.type]}</Chip>
+    <Chip tone="mint">{label}</Chip>
   ) : (
-    <Chip>{typeLabel[props.type]}</Chip>
+    <Chip>{label}</Chip>
   );
 }
 
@@ -26,8 +25,11 @@ export function LibraryView() {
   const store = useAppStore();
   const open = () => store.expandedCollection();
 
-  const toggle = (id: string) =>
-    store.setExpandedCollection(open() === id ? null : id);
+  const toggle = (id: number) => {
+    const next = open() === String(id) ? null : String(id);
+    store.setExpandedCollection(next);
+    if (next !== null) void store.loadSources(id);
+  };
 
   return (
     <div class="relative flex h-full flex-col">
@@ -52,8 +54,8 @@ export function LibraryView() {
           <ul class="divide-y divide-line">
             <For each={store.collections()}>
               {(c) => {
-                const isOpen = () => open() === c.id;
-                const sources = () => mockSources.filter((s) => s.collectionId === c.id);
+                const isOpen = () => open() === String(c.id);
+                const sources = () => store.sources().filter((s) => s.collectionId === c.id);
                 return (
                   <li>
                     <button

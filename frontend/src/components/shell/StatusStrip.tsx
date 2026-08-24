@@ -1,16 +1,28 @@
 import { useAppStore } from "../../lib/store";
 import { Kbd } from "../ui/primitives";
 
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
 /** Top strip: the model-engine state on the left, library summary on the
     right. Gives the "everything okay" read at a glance on every view. */
 export function StatusStrip() {
   const store = useAppStore();
+  const st = () => store.status();
   const totals = () => {
+    const s = st();
+    if (s) {
+      return { collections: s.collections, chunks: s.chunks, size: formatBytes(s.dbSize) };
+    }
     const cols = store.collections();
     return {
       collections: cols.length,
       chunks: cols.reduce((n, c) => n + c.chunks, 0),
-      size: "4.8 MB",
+      size: "",
     };
   };
   const onSearch = () => store.view() !== "search" && store.focusSearch();
@@ -21,8 +33,8 @@ export function StatusStrip() {
         <span class="data shrink-0 text-faint">all local</span>
         <span class="h-3 w-px shrink-0 bg-line-strong" aria-hidden="true" />
         <span class="data truncate text-faint">
-          {totals().collections} collections · {totals().chunks.toLocaleString()} chunks ·{" "}
-          {totals().size}
+          {totals().collections} collections · {totals().chunks.toLocaleString()} chunks
+          {totals().size ? ` · ${totals().size}` : ""}
         </span>
       </div>
       <div class="flex shrink-0 items-center gap-3">

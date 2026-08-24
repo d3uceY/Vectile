@@ -27,8 +27,9 @@ tasks:
           OBFUSCATED: '{{.OBFUSCATED}}'
           GARBLE_ARGS: '{{.GARBLE_ARGS}}'
     vars:
-      # Default to CGO_ENABLED=0 if not explicitly set
-      CGO_ENABLED: '{{.CGO_ENABLED | default "0"}}'
+      # Default to CGO_ENABLED=1: the vendored llama.go (llama.cpp bindings)
+      # needs cgo + MinGW on Windows. Disable explicitly only for non-cgo builds.
+      CGO_ENABLED: '{{.CGO_ENABLED | default "1"}}'
 
   build:native:
     summary: Builds the application using native Go cross-compilation
@@ -60,8 +61,13 @@ tasks:
       BUILD_FLAGS: '{{if eq .DEV "true"}}{{if or .EXTRA_TAGS (eq .OBFUSCATED "true")}}-tags {{if eq .OBFUSCATED "true"}}wails_obfuscated{{if .EXTRA_TAGS}},{{end}}{{end}}{{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{end}}'
     env:
       GOOS: windows
-      CGO_ENABLED: '{{.CGO_ENABLED | default "0"}}'
+      CGO_ENABLED: '1'
       GOARCH: '{{.ARCH | default ARCH}}'
+      # llama.go needs the MinGW C compiler on PATH and the llama-go root on
+      # the cgo search paths (wrapper.h + static archives live there).
+      PATH: 'C:\Users\deuce\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\mingw64\bin;{{.PATH}}'
+      LIBRARY_PATH: '{{.ROOT_DIR}}/third_party/llama-go'
+      C_INCLUDE_PATH: '{{.ROOT_DIR}}/third_party/llama-go'
 
   build:docker:
     summary: Cross-compiles for Windows using Docker with Zig (for CGO builds on non-Windows)

@@ -57,7 +57,7 @@ One authored moment: result lists stagger in (fade + 4px rise, 220ms, snappy eas
 - Left sidebar (224px, hairline right border): wordmark "vectile" + a green dot, serif tagline "your private library", five nav items, model-engine status pill in the footer.
 - Top status strip: "all local" + library summary (collections · chunks · size) left; Jump-to-search with ⌘K right.
 - Main: max-width 980px column, 32px gutters, per-view scroll.
-- Dot pattern (20px grid, ~5.5% ink) is the app-wide ground; grid pattern (34–40px, ~7% leaf) is the "blueprint" surface for Browse, Library, and the placeholder views.
+- Dot pattern (20px grid, ~10% ink, 1.25px dots) is the app-wide ground — visible but quiet; grid pattern (34–40px, ~7% leaf) is the "blueprint" surface for Browse, Library, and empty states.
 
 ## Views
 
