@@ -2,6 +2,7 @@
    this module, never to the raw bindings, so the API surface stays stable
    when bindings are regenerated. */
 
+import { Dialogs } from "@wailsio/runtime";
 import * as AppService from "../../bindings/vectile/backend/services/appservice";
 import * as IndexService from "../../bindings/vectile/backend/services/indexservice";
 import * as SearchService from "../../bindings/vectile/backend/services/searchservice";
@@ -77,4 +78,23 @@ export async function indexAll(force = false): Promise<void> {
 
 export async function prune(name: string): Promise<void> {
   await IndexService.Prune(name);
+}
+
+/**
+ * Opens the native OS folder picker and returns the chosen directory path
+ * (empty string if the user cancels). Used wherever the app collects paths.
+ */
+export async function pickFolder(title = "Choose a folder"): Promise<string> {
+  try {
+    const picked = await Dialogs.OpenFile({
+      Title: title,
+      CanChooseDirectories: true,
+      CanChooseFiles: false,
+      CanCreateDirectories: true,
+      AllowsMultipleSelection: false,
+    });
+    return (picked as string) ?? "";
+  } catch {
+    return "";
+  }
 }

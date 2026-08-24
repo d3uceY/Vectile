@@ -1,8 +1,9 @@
 import { createEffect, createSignal, For, Show, type JSX } from "solid-js";
 import { useAppStore } from "../../lib/store";
+import { pickFolder } from "../../lib/api";
 import type { AppConfig, GUIConfig, SearchDefaults } from "../../lib/types";
 import { Button, StatusPill, Toggle, ViewHeading } from "../ui/primitives";
-import { CloseIcon } from "../ui/icons";
+import { CloseIcon, FolderOpenIcon } from "../ui/icons";
 
 /* ---- small building blocks ---- */
 
@@ -34,8 +35,22 @@ function PathList(props: {
   values: string[];
   onAdd: (v: string) => void;
   onRemove: (v: string) => void;
+  title?: string;
 }) {
   const [input, setInput] = createSignal("");
+
+  const addInput = () => {
+    if (input().trim()) {
+      props.onAdd(input().trim());
+      setInput("");
+    }
+  };
+
+  const browse = async () => {
+    const dir = await pickFolder(props.title);
+    if (dir) props.onAdd(dir);
+  };
+
   return (
     <div class="flex flex-col gap-1.5">
       <ul class="flex flex-col gap-1">
@@ -59,24 +74,17 @@ function PathList(props: {
           value={input()}
           onInput={(e) => setInput(e.currentTarget.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && input().trim()) {
-              props.onAdd(input().trim());
-              setInput("");
-            }
+            if (e.key === "Enter") addInput();
           }}
           placeholder="/absolute/path"
           class="h-8 flex-1 rounded-control border border-line bg-paper px-3 text-[13px] outline-none focus:border-leaf"
           spellcheck={false}
         />
-        <Button
-          size="sm"
-          onClick={() => {
-            if (input().trim()) {
-              props.onAdd(input().trim());
-              setInput("");
-            }
-          }}
-        >
+        <Button size="sm" variant="outline" onClick={() => void browse()} aria-label="Browse for folder">
+          <FolderOpenIcon size={15} />
+          Browse
+        </Button>
+        <Button size="sm" onClick={addInput}>
           Add
         </Button>
       </div>
@@ -90,6 +98,7 @@ function GroupList(props: {
   onRemovePath: (name: string, v: string) => void;
   onAddGroup: (name: string) => void;
   onRemoveGroup: (name: string) => void;
+  title?: string;
 }) {
   const [name, setName] = createSignal("");
   return (
@@ -136,6 +145,7 @@ function GroupList(props: {
               values={paths}
               onAdd={(v) => props.onAddPath(gname, v)}
               onRemove={(v) => props.onRemovePath(gname, v)}
+              title={props.title}
             />
           </div>
         )}
@@ -252,6 +262,7 @@ export function SettingsView() {
                   values={draft()!.obsidian_vaults}
                   onAdd={(v) => addPath("obsidian_vaults", v)}
                   onRemove={(v) => removePath("obsidian_vaults", v)}
+                  title="Choose an Obsidian vault"
                 />
               </div>
               <div>
@@ -260,6 +271,7 @@ export function SettingsView() {
                   values={draft()!.obsidian_exclude_folders}
                   onAdd={(v) => addPath("obsidian_exclude_folders", v)}
                   onRemove={(v) => removePath("obsidian_exclude_folders", v)}
+                  title="Choose a folder to exclude"
                 />
               </div>
               <div>
@@ -268,6 +280,7 @@ export function SettingsView() {
                   values={draft()!.calibre_libraries}
                   onAdd={(v) => addPath("calibre_libraries", v)}
                   onRemove={(v) => removePath("calibre_libraries", v)}
+                  title="Choose a Calibre library"
                 />
               </div>
             </div>
@@ -280,6 +293,7 @@ export function SettingsView() {
                   onRemovePath={(n, v) => removeGroupPath("projects", n, v)}
                   onAddGroup={(n) => addGroup("projects", n)}
                   onRemoveGroup={(n) => removeGroup("projects", n)}
+                  title="Choose a project folder"
                 />
               </div>
               <div>
@@ -290,6 +304,7 @@ export function SettingsView() {
                   onRemovePath={(n, v) => removeGroupPath("repositories", n, v)}
                   onAddGroup={(n) => addGroup("repositories", n)}
                   onRemoveGroup={(n) => removeGroup("repositories", n)}
+                  title="Choose a code repository"
                 />
               </div>
             </div>
