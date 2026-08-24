@@ -151,7 +151,14 @@ tasks:
     generates:
       - frontend/bindings/**/*
     cmds:
-      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -time-type=Date{{if eq .OBFUSCATED "true"}} -obfuscated{{end}} -ts
+      # Do NOT pass BUILD_FLAGS via -f: wails3 splits the -f value on spaces and
+      # ignores quotes, so the spaces inside -ldflags="-w -s -H windowsgui" are
+      # misparsed as CLI flags (-s/-w/-H → "flag provided but not defined: -s").
+      # That error lands on stderr, which the parallel task run swallows, so the
+      # build silently stalls after npm install. Bindings generation only needs
+      # build tags (none exist today). If a //go:build production service is ever
+      # added, use: wails3 generate bindings -f '-tags production' -clean=true ...
+      - wails3 generate bindings -clean=true -time-type=Date{{if eq .OBFUSCATED "true"}} -obfuscated{{end}} -ts
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` from an image; on macOS, `-iconcomposerinput appicon.icon -macassetdir darwin` also produces `Assets.car` from a `.icon` file (skipped on other platforms).
