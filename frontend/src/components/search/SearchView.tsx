@@ -89,6 +89,14 @@ export function SearchView() {
     store.filters().dateFrom ||
     store.filters().dateTo;
 
+  // The configured default result count (Settings → search_defaults.top_k) may
+  // not be one of the fixed presets, so surface it as its own option.
+  const resultOptions = () => {
+    const opts = new Set([8, 12, 24, 48]);
+    opts.add(store.filters().topK);
+    return [...opts].sort((a, b) => a - b);
+  };
+
   return (
     <div class="relative flex h-full flex-col">
       {/* The search bar */}
@@ -188,7 +196,7 @@ export function SearchView() {
                 value={store.filters().topK}
                 onChange={(e) => applyFilter({ topK: Number(e.currentTarget.value) })}
               >
-                {[8, 12, 24, 48].map((n) => (
+                {resultOptions().map((n) => (
                   <option value={n}>{n}</option>
                 ))}
               </select>

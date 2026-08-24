@@ -23,7 +23,9 @@ export interface Toast {
   tone: "neutral" | "success" | "danger";
 }
 
-const defaultFilters = (): SearchFilters => ({
+const DEFAULT_TOP_K = 12;
+
+const defaultFilters = (topK = DEFAULT_TOP_K): SearchFilters => ({
   collection: "",
   sourceType: "",
   path: "",
@@ -31,7 +33,7 @@ const defaultFilters = (): SearchFilters => ({
   author: "",
   dateFrom: "",
   dateTo: "",
-  topK: 12,
+  topK,
 });
 
 export function createAppStore() {
@@ -66,6 +68,10 @@ export function createAppStore() {
   // Per-collection progress, keyed by collection name — drives the inline
   // loader on the dir currently being indexed.
   const [indexByCollection, setIndexByCollection] = createSignal<Record<string, IndexFileProgress>>({});
+  // True while an "Index all" run is in flight, so per-collection complete
+  // events don't each reload the library — the backend's single
+  // indexing:all-done event reloads it once at the end instead.
+  const [indexAllActive, setIndexAllActive] = createSignal(false);
 
   // Toasts
   const [toasts, setToasts] = createSignal<Toast[]>([]);
@@ -112,7 +118,7 @@ export function createAppStore() {
   const clearSearch = () => {
     searchSeq++; // invalidate any in-flight search
     setQuery("");
-    setFilters(defaultFilters());
+    setFilters(defaultFilters(config()?.search_defaults.top_k));
     setResults([]);
     setSearchState("idle");
   };
@@ -142,7 +148,13 @@ export function createAppStore() {
 
   const loadConfig = async () => {
     try {
-      setConfig(await api.getConfig());
+      const c = await api.getConfig();
+      setConfig(c);
+      // Adopt the configured default result count (Settings → search_defaults)
+      // for the advanced "Results" dropdown, unless the user already picked one.
+      setFilters((f) =>
+        f.topK === DEFAULT_TOP_K ? { ...f, topK: c.search_defaults.top_k } : f,
+      );
     } catch {
       /* ignore */
     }
@@ -199,6 +211,7 @@ export function createAppStore() {
   const startIndex = async (name: string, force = false) => {
     setIndexLast(null);
     setIndexProgress(null);
+    setIndexAllActive(false); // a single-collection run reloads on its own complete
     setIndexByCollection((m) => {
       const n = { ...m };
       delete n[name];
@@ -220,6 +233,7 @@ export function createAppStore() {
       pushToast("Another index is already running", "neutral");
       return;
     }
+    setIndexAllActive(true);
     setIndexing(true);
   };
 
@@ -266,9 +280,15 @@ export function createAppStore() {
     setIndexLast(e);
     setIndexing(false);
     void refresh();
-    void loadLibrary(); // browse should pick up freshly indexed files
+    // Reload for single-collection runs; an IndexAll reloads once on
+    // indexing:all-done instead (one loadLibrary per collection was heavy).
+    if (!indexAllActive()) void loadLibrary();
     if (e.errors > 0) pushToast(`${e.collection}: ${e.errors} error(s)`, "danger");
     else pushToast(`Indexed ${e.collection} · ${e.indexed} new`, "success");
+  });
+  const offAllDone = Events.On("indexing:all-done", () => {
+    setIndexAllActive(false);
+    void loadLibrary(); // browse picks up freshly indexed files once, not per collection
   });
   const offCancelled = Events.On("indexing:cancelled", (ev) => {
     const e = ev.data as IndexCancelled;
@@ -296,6 +316,7 @@ export function createAppStore() {
     offFile();
     offComplete();
     offCancelled();
+    offAllDone();
     offPruned();
   });
 

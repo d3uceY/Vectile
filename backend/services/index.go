@@ -114,6 +114,10 @@ func (s *IndexService) IndexAll(force bool) (bool, error) {
 			}
 			s.runIndex(ctx, name, force)
 		}
+		// The whole index-all run is done (all collections, or the first
+		// cancellation): the frontend reloads the library exactly once here
+		// instead of once per collection.
+		s.core.App.Event.Emit("indexing:all-done", nil)
 	}()
 	return true, nil
 }
