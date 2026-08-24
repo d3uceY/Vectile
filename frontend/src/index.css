@@ -161,6 +161,41 @@
     border-radius: var(--radius-card);
   }
 
+  /* Draggable progress-bar slider for 0..1 blends (search weights). The track
+     paints its filled portion from the --fill custom property (set inline by
+     the component) so the green bar always matches the thumb position. */
+  .slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 9999px;
+    background: linear-gradient(
+      to right,
+      var(--color-leaf) var(--fill, 0%),
+      var(--color-line) var(--fill, 0%)
+    );
+    outline-offset: 4px;
+    cursor: pointer;
+  }
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: #fff;
+    border: 1.5px solid var(--color-leaf);
+    box-shadow: 0 1px 3px rgb(27 34 38 / 0.25);
+    transition: transform 120ms var(--ease-snappy);
+  }
+  .slider::-webkit-slider-thumb:hover {
+    transform: scale(1.12);
+  }
+  .slider:focus-visible {
+    outline: 2px solid var(--color-leaf);
+    outline-offset: 4px;
+  }
+
   /* Staggered entrance for result lists (one authored motion moment) */
   .enter-stagger > * {
     opacity: 0;

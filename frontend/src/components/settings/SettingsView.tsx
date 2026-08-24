@@ -103,6 +103,51 @@ function NumField(props: {
   );
 }
 
+/* Decimal blend controls (e.g. the search weights) are a draggable progress
+   bar from 0 to 1 instead of a number box — the .slider class paints the
+   filled portion from the --fill custom property, and the tiny readout keeps
+   the exact value visible since a 0.05 step is hard to eyeball. */
+function RangeField(props: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  hint?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+}) {
+  const uid = createUniqueId();
+  const min = props.min ?? 0;
+  const max = props.max ?? 1;
+  const pct = () => ((props.value - min) / (max - min)) * 100;
+  return (
+    <div class="flex items-center justify-between gap-4">
+      <span class="flex items-center gap-1.5 text-[13.5px] text-ink-soft">
+        <label for={uid} class="cursor-pointer">
+          {props.label}
+        </label>
+        {props.hint && <InfoTip text={props.hint} />}
+      </span>
+      <span class="flex shrink-0 items-center gap-2.5">
+        <input
+          id={uid}
+          type="range"
+          value={props.value}
+          min={min}
+          max={max}
+          step={props.step}
+          onInput={(e) => props.onChange(Number(e.currentTarget.value))}
+          class="slider w-40"
+          style={{ "--fill": `${pct()}%` } as JSX.CSSProperties}
+        />
+        <span class="data w-9 shrink-0 text-right text-muted tabular-nums">
+          {props.value.toFixed(2)}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function PathList(props: {
   values: string[];
   onAdd: (v: string) => void;
@@ -428,7 +473,7 @@ export function SettingsView() {
               max={STATIC_BOUNDS.rrf_k.max}
               step={STATIC_BOUNDS.rrf_k.step}
             />
-            <NumField
+            <RangeField
               label="Vector weight"
               value={draft()!.search_defaults.vector_weight}
               onChange={(n) => setSearch("vector_weight", n)}
@@ -437,7 +482,7 @@ export function SettingsView() {
               max={STATIC_BOUNDS.vector_weight.max}
               step={STATIC_BOUNDS.vector_weight.step}
             />
-            <NumField
+            <RangeField
               label="Full-text weight"
               value={draft()!.search_defaults.fts_weight}
               onChange={(n) => setSearch("fts_weight", n)}
