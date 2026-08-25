@@ -3,6 +3,7 @@ package services
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"runtime"
 
@@ -38,13 +39,20 @@ func (s *AppService) GetStatus() Status {
 	if err := s.core.Embedder.LoadError(); err != nil {
 		modelErr = err.Error()
 	}
+	modelName := s.core.Cfg.EmbeddingModel
+	if active, ok, err := db.GetActiveModel(db.DB); err == nil && ok {
+		modelName = active.Name
+		if active.Dimensions > 0 {
+			modelName = fmt.Sprintf("%s · %dd", active.Name, active.Dimensions)
+		}
+	}
 	return Status{
 		Collections: collections,
 		Sources:     sources,
 		Chunks:      chunks,
 		DBSize:      size,
 		ModelState:  s.core.Embedder.State(),
-		ModelName:   s.core.Cfg.EmbeddingModel + " · 1024d",
+		ModelName:   modelName,
 		ModelPath:   s.core.Embedder.ModelPath(),
 		ModelError:  modelErr,
 	}
@@ -55,7 +63,11 @@ func (s *AppService) ListCollections() ([]Collection, error) {
 	rows, err := db.DB.Query(`
 		SELECT c.id, c.name, c.collection_type, c.description, c.created_at,
 			(SELECT COUNT(*) FROM sources s WHERE s.collection_id = c.id),
-			(SELECT COUNT(*) FROM documents d WHERE d.collection_id = c.id)
+			(SELECT COUNT(*) FROM documents d WHERE d.collection_id = c.id),
+			CASE WHEN EXISTS(SELECT 1 FROM documents d WHERE d.collection_id = c.id)
+			      AND NOT EXISTS(SELECT 1 FROM documents d JOIN vec_documents v
+			                     ON v.document_id = d.id WHERE d.collection_id = c.id)
+			     THEN 1 ELSE 0 END
 		FROM collections c
 		ORDER BY c.name`)
 	if err != nil {
@@ -67,7 +79,8 @@ func (s *AppService) ListCollections() ([]Collection, error) {
 	for rows.Next() {
 		var c Collection
 		var desc, created sql.NullString
-		if err := rows.Scan(&c.ID, &c.Name, &c.Type, &desc, &created, &c.Sources, &c.Chunks); err != nil {
+		var needsReindex int
+		if err := rows.Scan(&c.ID, &c.Name, &c.Type, &desc, &created, &c.Sources, &c.Chunks, &needsReindex); err != nil {
 			return nil, err
 		}
 		if desc.Valid {
@@ -76,6 +89,7 @@ func (s *AppService) ListCollections() ([]Collection, error) {
 		if created.Valid {
 			c.Created = created.String
 		}
+		c.NeedsReindex = needsReindex == 1
 		c.Enabled = s.core.Cfg.IsCollectionEnabled(c.Name)
 		out = append(out, c)
 	}

@@ -5,14 +5,17 @@
 import { Dialogs } from "@wailsio/runtime";
 import * as AppService from "../../bindings/vectile/backend/services/appservice";
 import * as IndexService from "../../bindings/vectile/backend/services/indexservice";
+import * as ModelService from "../../bindings/vectile/backend/services/modelservice";
 import * as SearchService from "../../bindings/vectile/backend/services/searchservice";
 import type {
   AppConfig,
   Collection,
   Document,
   IndexState,
+  ModelInfo,
   SearchFilters,
   SearchResult,
+  SetActiveResult,
   Source,
   Status,
 } from "./types";
@@ -106,6 +109,60 @@ export async function deleteSource(sourceId: number): Promise<number> {
     removed. */
 export async function deleteCollection(name: string): Promise<number> {
   return IndexService.DeleteCollection(name) as unknown as number;
+}
+
+/** Returns every installed model (folder scan + reconcile happens server-side). */
+export async function listModels(): Promise<ModelInfo[]> {
+  return ModelService.ListModels() as unknown as ModelInfo[];
+}
+
+/** Copies a .gguf into the models/ folder and registers it. */
+export async function importModel(path: string): Promise<ModelInfo> {
+  return ModelService.ImportModel(path) as unknown as ModelInfo;
+}
+
+/**
+ * Makes the model at path active. When switching would change the embedding
+ * dimension the backend does NOT apply it and returns needsRebuild=true; the
+ * UI confirms the destructive re-index, then calls setActiveModel(path, true).
+ */
+export async function setActiveModel(path: string, force = false): Promise<SetActiveResult> {
+  return ModelService.SetActiveModel(path, force) as unknown as SetActiveResult;
+}
+
+/** Removes a model from the table (and its file when it's in models/). */
+export async function deleteModel(path: string): Promise<void> {
+  await ModelService.DeleteModel(path);
+}
+
+/** Updates one model's per-model settings (context window, batch, threads). */
+export async function updateModelSettings(
+  id: number,
+  contextWindow: number,
+  batchSize: number,
+  threads: number,
+): Promise<void> {
+  await ModelService.UpdateModelSettings(id, contextWindow, batchSize, threads);
+}
+
+/**
+ * Opens the native OS file picker for a .gguf embedding model. Returns the
+ * chosen path (empty string if the user cancels).
+ */
+export async function pickModelFile(): Promise<string> {
+  try {
+    const picked = await Dialogs.OpenFile({
+      Title: "Choose an embedding model",
+      CanChooseDirectories: false,
+      CanChooseFiles: true,
+      CanCreateDirectories: false,
+      AllowsMultipleSelection: false,
+      Filters: [{ DisplayName: "GGUF model", Pattern: "*.gguf" }],
+    });
+    return (picked as string) ?? "";
+  } catch {
+    return "";
+  }
 }
 
 /**

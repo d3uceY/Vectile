@@ -81,15 +81,19 @@ type Status struct {
 }
 
 // Collection is a library collection with counts and enabled state.
+// NeedsReindex is true when the collection has indexed documents but no
+// embeddings — typically right after switching to a model with a different
+// embedding dimension, which empties the vector tables until re-indexing.
 type Collection struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Description string `json:"description"`
-	Sources     int    `json:"sources"`
-	Chunks      int    `json:"chunks"`
-	Created     string `json:"created"`
-	Enabled     bool   `json:"enabled"`
+	ID           int64  `json:"id"`
+	Name         string `json:"name"`
+	Type         string `json:"type"`
+	Description  string `json:"description"`
+	Sources      int    `json:"sources"`
+	Chunks       int    `json:"chunks"`
+	Created      string `json:"created"`
+	Enabled      bool   `json:"enabled"`
+	NeedsReindex bool   `json:"needsReindex"`
 }
 
 // Source is one indexed source.

@@ -3,10 +3,12 @@
 
 import * as AppService from "./appservice.js";
 import * as IndexService from "./indexservice.js";
+import * as ModelService from "./modelservice.js";
 import * as SearchService from "./searchservice.js";
 export {
     AppService,
     IndexService,
+    ModelService,
     SearchService
 };
 
@@ -15,6 +17,7 @@ export {
     Document,
     IndexFileProgress,
     IndexState,
+    SetActiveResult,
     Source,
     Status
 } from "./models.js";

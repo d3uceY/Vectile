@@ -35,6 +35,11 @@ func ConfigPath() string { return filepath.Join(Dir, "config.json") }
 // DBPath returns the SQLite database path.
 func DBPath() string { return filepath.Join(Dir, "db", "vectile.db") }
 
+// ModelsDir returns the folder vectile keeps embedding models in. Imported
+// .gguf files are copied here, and the folder is scanned to keep the models
+// list in sync with what's on disk.
+func ModelsDir() string { return filepath.Join(Dir, "models") }
+
 // ModelPath returns the embedding model path. VECTILE_EMBED_MODEL overrides
 // the default (models/bge-m3-Q4_K_M.gguf). The model is placed there manually;
 // the app never downloads or copies it.

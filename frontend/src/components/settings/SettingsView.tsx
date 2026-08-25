@@ -1,8 +1,8 @@
 import { createEffect, createSignal, createUniqueId, For, Show, type JSX } from "solid-js";
 import { useAppStore } from "../../lib/store";
-import { pickFolder } from "../../lib/api";
-import type { AppConfig, GUIConfig, SearchDefaults } from "../../lib/types";
-import { Button, InfoTip, StatusPill, Toggle, ViewHeading } from "../ui/primitives";
+import { importModel, pickFolder, pickModelFile } from "../../lib/api";
+import type { AppConfig, GUIConfig, ModelInfo, SearchDefaults } from "../../lib/types";
+import { Button, ConfirmDialog, InfoTip, Select, StatusPill, Toggle, ViewHeading } from "../ui/primitives";
 import { CloseIcon, FolderOpenIcon } from "../ui/icons";
 
 /* ---- hard bounds for numeric settings ----
@@ -407,6 +407,70 @@ export function SettingsView() {
     if (d) await store.saveConfig(d);
   };
 
+  /* ---- Model library (independent of the config draft) ---- */
+
+  // The active model from the backend's installed-models list.
+  const activeModel = (): ModelInfo | null => store.models().find((m) => m.isActive) ?? null;
+
+  // Per-model settings form for the active model.
+  const [modelCtx, setModelCtx] = createSignal(0);
+  const [modelBatch, setModelBatch] = createSignal(32);
+  const [modelThreads, setModelThreads] = createSignal(0);
+  createEffect(() => {
+    const m = activeModel();
+    if (m) {
+      setModelCtx(m.contextWindow);
+      setModelBatch(m.batchSize);
+      setModelThreads(m.threads);
+    }
+  });
+
+  // Pending dimension-change switch, awaiting the destructive-confirm dialog.
+  const [confirmDim, setConfirmDim] = createSignal<{ path: string; name: string } | null>(null);
+  const [confirmBusy, setConfirmBusy] = createSignal(false);
+
+  const modelLabel = (m: ModelInfo) => (m.dimensions > 0 ? `${m.name} · ${m.dimensions}d` : m.name);
+
+  const switchModel = async (path: string) => {
+    if (path === activeModel()?.path) return;
+    const r = await store.setActiveModel(path);
+    if (r.needsRebuild) setConfirmDim({ path, name: r.name });
+  };
+
+  const confirmDimSwitch = async () => {
+    const c = confirmDim();
+    if (!c) return;
+    setConfirmBusy(true);
+    try {
+      await store.setActiveModel(c.path, true);
+      setConfirmDim(null);
+    } finally {
+      setConfirmBusy(false);
+    }
+  };
+
+  const importModelFlow = async () => {
+    const p = await pickModelFile();
+    if (!p) return;
+    try {
+      const m = await importModel(p);
+      await store.loadModels();
+      store.pushToast(`Imported ${m.name}`, "success");
+    } catch (err) {
+      store.pushToast(`Import failed: ${err}`, "danger");
+    }
+  };
+
+  const removeModel = async (m: ModelInfo) => {
+    await store.deleteModel(m.path, m.name);
+  };
+
+  const saveModelSettings = async () => {
+    const m = activeModel();
+    if (!m) return;
+    await store.updateModelSettings(m.id, modelCtx(), modelBatch(), modelThreads());
+  };
+
   return (
     <div class="relative flex h-full flex-col">
       <ViewHeading title="Settings" note="Model, chunking, search, and sources. Everything stays on this machine.">
@@ -415,21 +479,132 @@ export function SettingsView() {
 
       <Show when={draft()} fallback={<p class="note text-muted">Loading settings…</p>}>
         <div class="scroll-quiet -mr-2 flex-1 overflow-y-auto pr-2">
-          <Section title="Model" note="The embedding engine runs in-process. Place bge-m3-Q4_K_M.gguf in the models folder of the vectile data directory.">
+          <Section
+            title="Model"
+            note="The embedding engine runs in-process. Import a .gguf below, or drop one into the models folder of the vectile data directory — it shows up here automatically."
+          >
             <div class="flex flex-wrap items-center gap-3">
               <StatusPill state={store.modelState()} name={store.modelName()} />
             </div>
             <div class="data truncate text-muted" title={store.status()?.modelPath ?? ""}>
               {store.status()?.modelPath ?? "…"}
             </div>
-            <NumField
-              label="Embedding batch size"
-              value={draft()!.embedding_batch_size}
-              onChange={(n) => setNumber("embedding_batch_size", n)}
-              hint="How many chunks get fed to the model at once. A bigger number finishes indexing faster but uses more memory while it runs. If a large library makes the app stall, drop it to something like 16."
-              min={STATIC_BOUNDS.embedding_batch_size.min}
-              max={STATIC_BOUNDS.embedding_batch_size.max}
-              step={STATIC_BOUNDS.embedding_batch_size.step}
+
+            <div class="flex items-center justify-between gap-4">
+              <span class="text-[13.5px] text-ink-soft">Active model</span>
+              <Select
+                aria-label="Active model"
+                value={activeModel()?.path ?? ""}
+                options={store.models().map((m) => ({ value: m.path, label: modelLabel(m) }))}
+                onChange={(e) => void switchModel(e.currentTarget.value)}
+              />
+            </div>
+
+            <div class="flex items-center justify-between gap-4">
+              <span class="text-[13.5px] text-ink-soft">Add a model file</span>
+              <Button size="sm" onClick={() => void importModelFlow()}>
+                Import model…
+              </Button>
+            </div>
+
+            <Show when={activeModel()}>
+              {(m) => (
+                <div class="rounded-control border border-line bg-surface/40 p-3">
+                  <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
+                    {m().name} settings
+                    <InfoTip text="Each model carries its own settings. Context 0 and threads 0 mean the defaults (2048 tokens, all cores)." />
+                  </p>
+                  <div class="data mb-2 truncate text-muted">
+                    Dimensions: {m().dimensions > 0 ? m().dimensions : "auto"}
+                  </div>
+                  <NumField
+                    label="Context window (tokens)"
+                    value={modelCtx()}
+                    onChange={setModelCtx}
+                    hint="How many tokens the model can read at once. 0 = the default (2048). Raise it for long chunks, lower it to save memory."
+                    min={0}
+                    max={8192}
+                    step={256}
+                  />
+                  <NumField
+                    label="Embedding batch size"
+                    value={modelBatch()}
+                    onChange={setModelBatch}
+                    hint="How many chunks get fed to the model at once. A bigger number finishes indexing faster but uses more memory while it runs. If a large library makes the app stall, drop it to something like 16."
+                    min={STATIC_BOUNDS.embedding_batch_size.min}
+                    max={STATIC_BOUNDS.embedding_batch_size.max}
+                    step={STATIC_BOUNDS.embedding_batch_size.step}
+                  />
+                  <NumField
+                    label="CPU threads"
+                    value={modelThreads()}
+                    onChange={setModelThreads}
+                    hint="0 = use all cores. Lower it if indexing starves the rest of the system."
+                    min={0}
+                    max={64}
+                    step={1}
+                  />
+                  <div class="mt-2 flex justify-end">
+                    <Button size="sm" onClick={() => void saveModelSettings()}>
+                      Save model settings
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Show>
+
+            <Show when={store.models().length > 0}>
+              <p class="mb-1 text-[13px] font-medium text-ink-soft">Installed models</p>
+              <ul class="space-y-1">
+                <For each={store.models()}>
+                  {(m) => (
+                    <li class="flex items-center gap-2 rounded-control border border-line bg-paper px-3 py-1.5">
+                      <span class="data flex-1 truncate text-muted" title={m.path}>
+                        {modelLabel(m)}
+                      </span>
+                      {m.isActive && (
+                        <span class="shrink-0 rounded-control bg-mint px-1.5 py-0.5 text-[11px] font-medium text-leaf-deep">
+                          active
+                        </span>
+                      )}
+                      <button
+                        class="shrink-0 text-faint transition-colors hover:text-danger disabled:opacity-40 disabled:pointer-events-none"
+                        aria-label={`Remove ${m.name}`}
+                        disabled={m.isActive}
+                        onClick={() => void removeModel(m)}
+                      >
+                        <CloseIcon size={14} />
+                      </button>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
+
+            <Show when={store.models().length === 0}>
+              <p class="note text-muted">
+                No models yet. Import a .gguf or drop one into the models folder.
+              </p>
+            </Show>
+
+            <ConfirmDialog
+              open={confirmDim() !== null}
+              title="Switching changes the embedding dimension"
+              body={
+                <>
+                  <p>
+                    <span class="font-medium text-ink">{confirmDim()?.name}</span> uses a
+                    different embedding dimension than the current model. Every indexed
+                    collection will need to be re-indexed before meaning-search works again,
+                    and all existing embeddings will be cleared.
+                  </p>
+                  <p class="mt-2">Switch anyway?</p>
+                </>
+              }
+              confirmLabel="Switch & re-index"
+              busy={confirmBusy()}
+              onCancel={() => setConfirmDim(null)}
+              onConfirm={() => void confirmDimSwitch()}
             />
           </Section>
 

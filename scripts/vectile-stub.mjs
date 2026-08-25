@@ -19,6 +19,11 @@ const M = {
   DeleteSource: 2650919656,
   DeleteCollection: 3393632225,
   GetIndexingState: 148853163,
+  ListModels: 4184755701,
+  ImportModel: 3637578651,
+  SetActiveModel: 859586252,
+  DeleteModel: 3374659369,
+  UpdateModelSettings: 2688418022,
 };
 
 const MODEL_NAME = "bge-m3";
@@ -41,6 +46,7 @@ const status = {
 
 const config = {
   embedding_model: MODEL_NAME,
+  active_model: MODEL_PATH,
   embedding_batch_size: 16,
   chunk_size_tokens: 200,
   chunk_overlap_tokens: 30,
@@ -56,6 +62,15 @@ const config = {
   search_defaults: { top_k: 12, rrf_k: 60, vector_weight: 1.0, fts_weight: 1.0 },
   gui: { auto_reindex: true, auto_reindex_interval_minutes: 60, start_on_login: false },
 };
+
+// ---------------------------------------------------------------------------
+// Models (installed embedding models)
+// ---------------------------------------------------------------------------
+
+let models = [
+  { id: 1, name: "bge-m3-Q4_K_M", path: MODEL_PATH, dimensions: 1024, contextWindow: 2048, batchSize: 32, threads: 0, isActive: true, created: "2026-08-24" },
+  { id: 2, name: "mxbai-embed-large", path: "C:\\Users\\you\\AppData\\Roaming\\vectile\\models\\mxbai-embed-large.gguf", dimensions: 1024, contextWindow: 2048, batchSize: 32, threads: 0, isActive: false, created: "2026-08-24" },
+];
 
 // ---------------------------------------------------------------------------
 // Collections -> sources -> documents
@@ -241,6 +256,54 @@ export async function stub(request) {
       // The screenshot stub is idle; the real backend reports an active run so
       // a freshly loaded frontend can rebuild the indexing UI after a reload.
       return { body: { active: false, all: false, collections: {} } };
+    case M.ListModels:
+      return { body: models };
+    case M.ImportModel: {
+      const srcPath = post.args?.args?.[0];
+      const base = String(srcPath).split(/[\\/]/).pop() ?? "model";
+      const name = base.replace(/\.gguf$/i, "");
+      const m = {
+        id: models.length + 1,
+        name,
+        path: "C:\\Users\\you\\AppData\\Roaming\\vectile\\models\\" + base,
+        dimensions: 1024,
+        contextWindow: 2048,
+        batchSize: 32,
+        threads: 0,
+        isActive: false,
+        created: new Date().toISOString().slice(0, 10),
+      };
+      models.push(m);
+      return { body: m };
+    }
+    case M.SetActiveModel: {
+      const [path, force] = post.args?.args ?? [];
+      const m = models.find((x) => x.path === path);
+      if (!m) return { body: { needsRebuild: false, model: models[0] } };
+      const prev = models.find((x) => x.isActive);
+      const dimChange = prev && prev.dimensions !== m.dimensions;
+      if (dimChange && !force) return { body: { needsRebuild: true, model: m } };
+      models.forEach((x) => (x.isActive = x.path === path));
+      config.active_model = path;
+      status.modelName = m.name + (m.dimensions ? " · " + m.dimensions + "d" : "");
+      return { body: { needsRebuild: false, model: m } };
+    }
+    case M.DeleteModel: {
+      const path = post.args?.args?.[0];
+      const idx = models.findIndex((x) => x.path === path);
+      if (idx !== -1) models.splice(idx, 1);
+      return { body: true };
+    }
+    case M.UpdateModelSettings: {
+      const [id, contextWindow, batchSize, threads] = post.args?.args ?? [];
+      const m = models.find((x) => x.id === id);
+      if (m) {
+        m.contextWindow = contextWindow;
+        m.batchSize = batchSize;
+        m.threads = threads;
+      }
+      return { body: true };
+    }
     case M.DeleteSource: {
       const sourceId = post.args?.args?.[0];
       const s = sources.find((x) => x.id === sourceId);

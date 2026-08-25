@@ -31,10 +31,15 @@ func main() {
 		log.Fatalf("config load: %v", err)
 	}
 
+	modelPath := cfg.ActiveModel
+	if modelPath == "" {
+		modelPath = appdata.ModelPath()
+	}
+
 	core := &services.Core{
 		Cfg:      cfg,
 		CfgPath:  appdata.ConfigPath(),
-		Embedder: embeddings.NewEmbedder(appdata.ModelPath()),
+		Embedder: embeddings.NewEmbedder(modelPath, 0, 0),
 	}
 
 	app := application.New(application.Options{
@@ -44,6 +49,7 @@ func main() {
 			application.NewService(services.NewAppService(core)),
 			application.NewService(services.NewSearchService(core)),
 			application.NewService(services.NewIndexService(core)),
+			application.NewService(services.NewModelService(core)),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -78,6 +84,13 @@ func main() {
 	// Open the database and apply the schema once the app is wired up.
 	if err := db.Open(appdata.DBPath()); err != nil {
 		log.Fatalf("db open: %v", err)
+	}
+
+	// Reconcile the models folder and load the active model (or the default)
+	// with its per-model settings, rebuilding the vector tables if the
+	// active model's embedding dimension changed.
+	if err := services.NewModelService(core).ApplyActiveModel(); err != nil {
+		log.Fatalf("apply active model: %v", err)
 	}
 
 	// Auto-reindex: poll the config each minute; fire an index-all when the

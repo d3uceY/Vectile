@@ -10,6 +10,7 @@ import { Create as $Create } from "@wailsio/runtime";
  */
 export class Config {
     "embedding_model": string;
+    "active_model": string;
     "embedding_batch_size": number;
     "chunk_size_tokens": number;
     "chunk_overlap_tokens": number;
@@ -29,6 +30,9 @@ export class Config {
     constructor($$source: Partial<Config> = {}) {
         if (!("embedding_model" in $$source)) {
             this["embedding_model"] = "";
+        }
+        if (!("active_model" in $$source)) {
+            this["active_model"] = "";
         }
         if (!("embedding_batch_size" in $$source)) {
             this["embedding_batch_size"] = 0;
@@ -80,42 +84,42 @@ export class Config {
      * Creates a new Config instance from a string or object.
      */
     static createFrom($$source: any = {}): Config {
-        const $$createField4_0 = $$createType0;
         const $$createField5_0 = $$createType0;
         const $$createField6_0 = $$createType0;
-        const $$createField7_0 = $$createType1;
+        const $$createField7_0 = $$createType0;
         const $$createField8_0 = $$createType1;
-        const $$createField9_0 = $$createType0;
-        const $$createField12_0 = $$createType0;
-        const $$createField13_0 = $$createType2;
-        const $$createField14_0 = $$createType3;
+        const $$createField9_0 = $$createType1;
+        const $$createField10_0 = $$createType0;
+        const $$createField13_0 = $$createType0;
+        const $$createField14_0 = $$createType2;
+        const $$createField15_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("obsidian_vaults" in $$parsedSource) {
-            $$parsedSource["obsidian_vaults"] = $$createField4_0($$parsedSource["obsidian_vaults"]);
+            $$parsedSource["obsidian_vaults"] = $$createField5_0($$parsedSource["obsidian_vaults"]);
         }
         if ("obsidian_exclude_folders" in $$parsedSource) {
-            $$parsedSource["obsidian_exclude_folders"] = $$createField5_0($$parsedSource["obsidian_exclude_folders"]);
+            $$parsedSource["obsidian_exclude_folders"] = $$createField6_0($$parsedSource["obsidian_exclude_folders"]);
         }
         if ("calibre_libraries" in $$parsedSource) {
-            $$parsedSource["calibre_libraries"] = $$createField6_0($$parsedSource["calibre_libraries"]);
+            $$parsedSource["calibre_libraries"] = $$createField7_0($$parsedSource["calibre_libraries"]);
         }
         if ("repositories" in $$parsedSource) {
-            $$parsedSource["repositories"] = $$createField7_0($$parsedSource["repositories"]);
+            $$parsedSource["repositories"] = $$createField8_0($$parsedSource["repositories"]);
         }
         if ("projects" in $$parsedSource) {
-            $$parsedSource["projects"] = $$createField8_0($$parsedSource["projects"]);
+            $$parsedSource["projects"] = $$createField9_0($$parsedSource["projects"]);
         }
         if ("disabled_collections" in $$parsedSource) {
-            $$parsedSource["disabled_collections"] = $$createField9_0($$parsedSource["disabled_collections"]);
+            $$parsedSource["disabled_collections"] = $$createField10_0($$parsedSource["disabled_collections"]);
         }
         if ("git_commit_subject_blacklist" in $$parsedSource) {
-            $$parsedSource["git_commit_subject_blacklist"] = $$createField12_0($$parsedSource["git_commit_subject_blacklist"]);
+            $$parsedSource["git_commit_subject_blacklist"] = $$createField13_0($$parsedSource["git_commit_subject_blacklist"]);
         }
         if ("search_defaults" in $$parsedSource) {
-            $$parsedSource["search_defaults"] = $$createField13_0($$parsedSource["search_defaults"]);
+            $$parsedSource["search_defaults"] = $$createField14_0($$parsedSource["search_defaults"]);
         }
         if ("gui" in $$parsedSource) {
-            $$parsedSource["gui"] = $$createField14_0($$parsedSource["gui"]);
+            $$parsedSource["gui"] = $$createField15_0($$parsedSource["gui"]);
         }
         return new Config($$parsedSource as Partial<Config>);
     }

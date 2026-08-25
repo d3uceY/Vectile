@@ -31,6 +31,7 @@ type GUIConfig struct {
 // Config is the full application configuration.
 type Config struct {
 	EmbeddingModel            string              `json:"embedding_model"`
+	ActiveModel               string              `json:"active_model"`
 	EmbeddingBatchSize        int                 `json:"embedding_batch_size"`
 	ChunkSizeTokens           int                 `json:"chunk_size_tokens"`
 	ChunkOverlapTokens        int                 `json:"chunk_overlap_tokens"`
@@ -161,6 +162,7 @@ func Save(cfg *Config, path string) error {
 	}
 	// Overlay current values, keeping any keys this build doesn't know about.
 	existing["embedding_model"] = cfg.EmbeddingModel
+	existing["active_model"] = cfg.ActiveModel
 	existing["embedding_batch_size"] = cfg.EmbeddingBatchSize
 	existing["chunk_size_tokens"] = cfg.ChunkSizeTokens
 	existing["chunk_overlap_tokens"] = cfg.ChunkOverlapTokens

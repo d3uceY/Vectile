@@ -10,6 +10,7 @@ import type {
   IndexFileProgress,
   IndexProgress,
   IndexState,
+  ModelInfo,
   ModelState,
   SearchFilters,
   SearchResult,
@@ -47,6 +48,7 @@ export function createAppStore() {
   const [status, setStatus] = createSignal<Status | null>(null);
   const [collections, setCollections] = createSignal<Collection[]>([]);
   const [config, setConfig] = createSignal<AppConfig | null>(null);
+  const [models, setModels] = createSignal<ModelInfo[]>([]);
 
   // Library / Browse data (loaded on demand)
   const [sources, setSources] = createSignal<Source[]>([]);
@@ -204,6 +206,56 @@ export function createAppStore() {
     await refresh();
     pushToast("Settings saved", "success");
   };
+
+  // Model library: refresh the installed-models list from the backend.
+  const loadModels = async () => {
+    try {
+      setModels(await api.listModels());
+    } catch {
+      /* backend not ready yet */
+    }
+  };
+
+  // Switch the active model. When the backend says switching would change the
+  // embedding dimension (needsRebuild) it does NOT apply it yet — the caller
+  // shows a confirm dialog, then calls setActiveModel(path, true).
+  const setActiveModel = async (path: string, force = false) => {
+    const res = await api.setActiveModel(path, force);
+    if (!res.needsRebuild) {
+      await refresh();
+      void loadModels();
+      pushToast(`Active model: ${res.model.name}`, "success");
+    }
+    return { needsRebuild: res.needsRebuild, name: res.model.name };
+  };
+
+  const deleteModel = async (path: string, name: string): Promise<boolean> => {
+    try {
+      await api.deleteModel(path);
+      pushToast(`Removed ${name}`, "success");
+      void loadModels();
+      return true;
+    } catch (err) {
+      pushToast(`Delete failed: ${err}`, "danger");
+      return false;
+    }
+  };
+
+  const updateModelSettings = async (
+    id: number,
+    contextWindow: number,
+    batchSize: number,
+    threads: number,
+  ) => {
+    try {
+      await api.updateModelSettings(id, contextWindow, batchSize, threads);
+      pushToast("Model settings saved", "success");
+      void loadModels();
+    } catch (err) {
+      pushToast(`Settings failed: ${err}`, "danger");
+    }
+  };
+
 
   // Index view actions. The backend reports whether a run actually started;
   // "indexing" is only set on a confirmed start so a rejected request (another
@@ -392,6 +444,11 @@ export function createAppStore() {
     const n = ev.data as number;
     if (n > 0) pushToast(`Pruned ${n} stale sources`, "neutral");
   });
+  // Active model changed (switch, or settings applied to the running model).
+  const offModelChanged = Events.On("model:changed", () => {
+    void refresh();
+    void loadModels();
+  });
 
   // A freshly loaded frontend has no idea the backend is mid-index (events
   // emitted before it subscribed are lost), so on mount we ask the backend for
@@ -420,6 +477,7 @@ export function createAppStore() {
   onMount(() => {
     void refresh();
     void loadConfig();
+    void loadModels();
     void hydrateIndexing();
   });
   onCleanup(() => {
@@ -429,6 +487,7 @@ export function createAppStore() {
     offCancelled();
     offAllDone();
     offPruned();
+    offModelChanged();
   });
 
   return {
@@ -439,6 +498,11 @@ export function createAppStore() {
     status,
     collections,
     config,
+    models,
+    loadModels,
+    setActiveModel,
+    deleteModel,
+    updateModelSettings,
     saveConfig,
     loadConfig,
     sources,

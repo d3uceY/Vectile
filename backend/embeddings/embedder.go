@@ -13,9 +13,10 @@ import (
 	llama "github.com/tcpipuk/llama-go"
 )
 
-// embedderCtx is the model context window in tokens. bge-m3 supports 8192;
-// 2048 gives generous headroom over the chunker's ~500-word chunks.
-const embedderCtx = 2048
+// defaultContext is the model context window in tokens when a model doesn't
+// configure one. bge-m3 supports 8192; 2048 gives generous headroom over the
+// chunker's ~500-word chunks.
+const defaultContext = 2048
 
 // State describes the embedder's lifecycle for the UI status pill.
 type State string
@@ -36,14 +37,22 @@ type Embedder struct {
 	loadFailed bool
 	loadErr    error
 
+	// ctxSize is the model context window in tokens (0 = defaultContext);
+	// threads is the CPU thread count (0 = runtime.NumCPU()). Both are set
+	// per model by SetModel / NewEmbedder.
+	ctxSize int
+	threads int
+
 	// inferMu serializes inference: the indexer embeds chunks in the
 	// background while a search embeds its query on demand.
 	inferMu sync.Mutex
 }
 
-// NewEmbedder returns an Embedder that loads modelPath on first embed.
-func NewEmbedder(modelPath string) *Embedder {
-	return &Embedder{modelPath: modelPath}
+// NewEmbedder returns an Embedder that loads modelPath on first embed. ctxSize
+// is the context window in tokens (0 = defaultContext); threads is the CPU
+// thread count (0 = runtime.NumCPU()).
+func NewEmbedder(modelPath string, ctxSize, threads int) *Embedder {
+	return &Embedder{modelPath: modelPath, ctxSize: ctxSize, threads: threads}
 }
 
 // State reports the embedder lifecycle state without loading the model.
@@ -68,6 +77,30 @@ func (e *Embedder) LoadError() error {
 
 // ModelPath returns the configured model path.
 func (e *Embedder) ModelPath() string { return e.modelPath }
+
+// SetModel re-points the embedder at a different model, closing the current
+// one. The new model loads lazily on the next embed with the given settings.
+// Callers must ensure no index run is in flight, so a mid-run model change
+// can't mix embedding dimensions.
+func (e *Embedder) SetModel(path string, ctxSize, threads int) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.ctx != nil {
+		_ = e.ctx.Close()
+		e.ctx = nil
+	}
+	if e.model != nil {
+		_ = e.model.Close()
+		e.model = nil
+	}
+	e.modelPath = path
+	e.ctxSize = ctxSize
+	e.threads = threads
+	e.loaded = false
+	e.loadFailed = false
+	e.loadErr = nil
+	return nil
+}
 
 // ensureLoaded loads the model once. Failures are cached so a missing or
 // corrupt model isn't re-attempted on every job.
@@ -96,9 +129,17 @@ func (e *Embedder) ensureLoaded() error {
 		return e.loadErr
 	}
 
+	ctxTokens := e.ctxSize
+	if ctxTokens <= 0 {
+		ctxTokens = defaultContext
+	}
+	threads := e.threads
+	if threads <= 0 {
+		threads = runtime.NumCPU()
+	}
 	ctx, err := model.NewContext(
-		llama.WithContext(embedderCtx),
-		llama.WithThreads(runtime.NumCPU()),
+		llama.WithContext(ctxTokens),
+		llama.WithThreads(threads),
 		llama.WithEmbeddings(), // required to get vectors back
 	)
 	if err != nil {

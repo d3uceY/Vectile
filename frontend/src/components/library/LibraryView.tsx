@@ -114,6 +114,14 @@ export function LibraryView() {
                           <span class="flex min-w-0 items-center gap-2">
                             <span class="title truncate text-[14px] text-ink">{c.name}</span>
                             <TypeBadge type={c.type} />
+                            {c.needsReindex && (
+                              <span
+                                class="shrink-0 rounded-control bg-highlighter/60 px-1.5 py-0.5 text-[11px] font-medium text-ink"
+                                title="This collection has no embeddings — re-index it after switching to a model with a different embedding dimension."
+                              >
+                                needs reindex
+                              </span>
+                            )}
                           </span>
                         </span>
                         <span class="data col-span-2 text-muted">{sources().length} files</span>

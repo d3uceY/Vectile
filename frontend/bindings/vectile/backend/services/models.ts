@@ -7,10 +7,16 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as db$0 from "../db/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as embeddings$0 from "../embeddings/models.js";
 
 /**
  * Collection is a library collection with counts and enabled state.
+ * NeedsReindex is true when the collection has indexed documents but no
+ * embeddings — typically right after switching to a model with a different
+ * embedding dimension, which empties the vector tables until re-indexing.
  */
 export class Collection {
     "id": number;
@@ -21,6 +27,7 @@ export class Collection {
     "chunks": number;
     "created": string;
     "enabled": boolean;
+    "needsReindex": boolean;
 
     /** Creates a new Collection instance. */
     constructor($$source: Partial<Collection> = {}) {
@@ -47,6 +54,9 @@ export class Collection {
         }
         if (!("enabled" in $$source)) {
             this["enabled"] = false;
+        }
+        if (!("needsReindex" in $$source)) {
+            this["needsReindex"] = false;
         }
 
         Object.assign(this, $$source);
@@ -187,6 +197,40 @@ export class IndexState {
 }
 
 /**
+ * SetActiveResult reports the outcome of SetActiveModel. NeedsRebuild is true
+ * when switching would change the embedding dimension — the switch is NOT
+ * applied until the frontend confirms and calls SetActiveModel(force=true).
+ */
+export class SetActiveResult {
+    "needsRebuild": boolean;
+    "model": db$0.Model;
+
+    /** Creates a new SetActiveResult instance. */
+    constructor($$source: Partial<SetActiveResult> = {}) {
+        if (!("needsRebuild" in $$source)) {
+            this["needsRebuild"] = false;
+        }
+        if (!("model" in $$source)) {
+            this["model"] = (new db$0.Model());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SetActiveResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SetActiveResult {
+        const $$createField1_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("model" in $$parsedSource) {
+            $$parsedSource["model"] = $$createField1_0($$parsedSource["model"]);
+        }
+        return new SetActiveResult($$parsedSource as Partial<SetActiveResult>);
+    }
+}
+
+/**
  * Source is one indexed source.
  */
 export class Source {
@@ -285,3 +329,4 @@ export class Status {
 // Private type creation functions
 const $$createType0 = IndexFileProgress.createFrom;
 const $$createType1 = $Create.Map($Create.Any, $$createType0);
+const $$createType2 = db$0.Model.createFrom;

@@ -55,7 +55,7 @@ func TestIndexAndSearchEndToEnd(t *testing.T) {
 		Repositories:          map[string][]string{},
 		Projects:              map[string][]string{},
 	}
-	embedder := embeddings.NewEmbedder(modelPath)
+	embedder := embeddings.NewEmbedder(modelPath, 0, 0)
 	t.Cleanup(embedder.Close)
 
 	result := IndexProject(context.Background(), conn, cfg, "test", []string{dir}, false, nil, embedder)

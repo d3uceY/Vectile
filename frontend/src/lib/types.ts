@@ -25,6 +25,7 @@ export interface Collection {
   chunks: number;
   created: string;
   enabled: boolean;
+  needsReindex: boolean;
 }
 
 export interface Source {
@@ -101,6 +102,7 @@ export interface GUIConfig {
 
 export interface AppConfig {
   embedding_model: string;
+  active_model: string;
   embedding_batch_size: number;
   chunk_size_tokens: number;
   chunk_overlap_tokens: number;
@@ -156,4 +158,23 @@ export interface IndexState {
   active: boolean;
   all: boolean;
   collections: Record<string, IndexFileProgress>;
+}
+
+/** Mirrors db.Model — one installed embedding model. */
+export interface ModelInfo {
+  id: number;
+  name: string;
+  path: string;
+  dimensions: number;
+  contextWindow: number;
+  batchSize: number;
+  threads: number;
+  isActive: boolean;
+  created: string;
+}
+
+/** Mirrors services.SetActiveResult — setActiveModel() outcome. */
+export interface SetActiveResult {
+  needsRebuild: boolean;
+  model: ModelInfo;
 }

@@ -43,7 +43,7 @@ func TestEmbedRealModel(t *testing.T) {
 		t.Skipf("model not present: %v", err)
 	}
 
-	e := NewEmbedder(path)
+	e := NewEmbedder(path, 0, 0)
 	defer e.Close()
 
 	vec, err := e.Embed("the quick brown fox jumps over the lazy dog")

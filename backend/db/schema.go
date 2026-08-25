@@ -10,7 +10,7 @@ import (
 )
 
 // SchemaVersion is the current schema version, tracked in the meta table.
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 // InitSchema creates all tables, virtual tables, and triggers if they don't
 // exist. Safe to call on every startup.
@@ -48,18 +48,22 @@ func InitSchema(db *sql.DB, embeddingDim int) error {
 			UNIQUE(source_id, chunk_index)
 		);
 
-		CREATE VIRTUAL TABLE IF NOT EXISTS vec_documents USING vec0(
-			embedding float[%d],
-			document_id INTEGER
+		-- Installed embedding models. Rows come from importing a .gguf through
+		-- the UI or from scanning the models/ folder; per-model settings live
+		-- here and apply when the model is the active one.
+		CREATE TABLE IF NOT EXISTS models (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			path TEXT NOT NULL UNIQUE,
+			dimensions INTEGER NOT NULL DEFAULT 0,
+			context_window INTEGER NOT NULL DEFAULT 0,
+			batch_size INTEGER NOT NULL DEFAULT 32,
+			threads INTEGER NOT NULL DEFAULT 0,
+			is_active INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT DEFAULT (datetime('now'))
 		);
 
-		-- Binary-quantized mirror of vec_documents for fast candidate
-		-- retrieval; rowids align with vec_documents so exact float vectors
-		-- can be fetched for reranking. See backend/search.
-		CREATE VIRTUAL TABLE IF NOT EXISTS vec_documents_bin USING vec0(
-			embedding bit[%[1]d],
-			document_id INTEGER
-		);
+		%s
 
 		CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
 			title,
@@ -91,10 +95,17 @@ func InitSchema(db *sql.DB, embeddingDim int) error {
 		);
 
 		CREATE INDEX IF NOT EXISTS idx_documents_collection_id ON documents(collection_id);
-	`, embeddingDim)
+	`, vecTablesDDL(embeddingDim))
 
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
+	}
+
+	// Track which dimension the vector tables were built at, so a later
+	// startup can rebuild them when the active model's dimension differs.
+	if _, err := db.Exec("INSERT OR IGNORE INTO meta (key, value) VALUES ('vector_dim', ?)",
+		strconv.Itoa(embeddingDim)); err != nil {
+		return fmt.Errorf("record vector dim: %w", err)
 	}
 
 	// Record schema version once.
@@ -111,6 +122,26 @@ func InitSchema(db *sql.DB, embeddingDim int) error {
 	}
 
 	return backfillBinaryVectors(db)
+}
+
+// vecTablesDDL returns the two vector virtual-table statements for a given
+// embedding dimension. Shared by InitSchema (initial build) and
+// RebuildVectorTables (when the active model's dimension changes).
+func vecTablesDDL(dim int) string {
+	return fmt.Sprintf(`
+		CREATE VIRTUAL TABLE IF NOT EXISTS vec_documents USING vec0(
+			embedding float[%d],
+			document_id INTEGER
+		);
+
+		-- Binary-quantized mirror of vec_documents for fast candidate
+		-- retrieval; rowids align with vec_documents so exact float vectors
+		-- can be fetched for reranking. See backend/search.
+		CREATE VIRTUAL TABLE IF NOT EXISTS vec_documents_bin USING vec0(
+			embedding bit[%d],
+			document_id INTEGER
+		);
+	`, dim, dim)
 }
 
 // binaryBackfillDoneKey marks that vec_documents_bin has been populated from
