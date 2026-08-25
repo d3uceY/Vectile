@@ -23,9 +23,9 @@ These verify the index itself works before you judge semantics.
 
 ---
 
-## 🟡 Medium — paraphrase / synonym, zero shared keywords
+## 🟡 Medium — paraphrase / synonym, low shared keywords
 
-The exact words below **do not appear** in the target docs. These are where the vector side should win and FTS should fail.
+Mostly paraphrase, meant to have little literal overlap — but a word-boundary audit shows **several share content words with their targets**: `spotty bananas` → 02, `flour/water/tangy/bread` → 03, `short/bursts` → 05, `cold/weather` → 04, `carry` → 08, `meat/muscle` → 11, `desk` → 13, `history/working/alone` → 14 (M6/M7 are the only truly keyword-free rows). Treat these as "should win even with a keyword bridge." For queries with a keyword that doesn't exist **anywhere**, use the ⚫️ Black set below.
 
 | # | Query | Target |
 |---|-------|--------|
@@ -59,11 +59,42 @@ The query shares almost nothing lexically; the embedding has to infer the *topic
 
 ---
 
+## ⚫️ Black — one keyword doesn't exist anywhere (regex-verifiable)
+
+Same idea as Medium but *impossible to fake with a keyword*. Each query carries one salient term — the word you'd naturally search for — that a word-boundary regex confirms appears **nowhere in the corpus** (checked against all 17 files: 0 hits). A plain FTS query for that word returns nothing, so only the embedding can route to the right document.
+
+The **Missing keyword** column is the word to verify. Run the regex in **Verify** against the target file (VS Code Find → regex, or PowerShell `Select-String -Path '<file>' -Pattern '<regex>'`) — it must match nothing. A ready-to-run check that tests all 17 at once lives in [`verify-missing-keywords.ps1`](./verify-missing-keywords.ps1).
+
+| # | Query | Target | Missing keyword | Verify (against target file) |
+|---|-------|--------|-----------------|------------------------------|
+| B1 | `homemade spaghetti sauce from ripe tomatoes` | 01 | `spaghetti` | `(?i)\bspaghetti\b` |
+| B2 | `turning ripe bananas into muffins` | 02 | `muffin` | `(?i)\bmuffin\b` |
+| B3 | `natural yeast that makes bread tangy` | 03 | `yeast` | `(?i)\byeast\b` |
+| B4 | `cozy autumn chowder with beans` | 04 | `chowder` | `(?i)\bchowder\b` |
+| B5 | `HIIT sessions to raise your stamina` | 05 | `HIIT` | `(?i)\bhiit\b` |
+| B6 | `marathon fuel and hydration plan` | 06 | `marathon` | `(?i)\bmarathon\b` |
+| B7 | `mountain trail with sweeping views` | 07 | `mountain` | `(?i)\bmountain\b` |
+| B8 | `airport carry-on essentials checklist` | 08 | `airport` | `(?i)\bairport\b` |
+| B9 | `overnight camping kit that stays light` | 09 | `camping` | `(?i)\bcamping\b` |
+| B10 | `fresh salsa straight from the pots` | 10 | `salsa` | `(?i)\bsalsa\b` |
+| B11 | `vegan protein sources for athletes` | 11 | `vegan` | `(?i)\bvegan\b` |
+| B12 | `evening wind-down ritual for deep rest` | 12 | `ritual` | `(?i)\britual\b` |
+| B13 | `office posture tips for long days at a screen` | 13 | `posture` | `(?i)\bposture\b` |
+| B14 | `version control for a one-person project` | 14 | `version` | `(?i)\bversion\b` |
+| B15 | `systems language for terminal tools` | 15 | `terminal` | `(?i)\bterminal\b` |
+| B16 | `dystopian novels about what comes next` | 16 | `dystopian` | `(?i)\bdystopian\b` |
+| B17 | `cartoon marathon for family night` | 17 | `cartoon` | `(?i)\bcartoon\b` |
+
+**Reading the results:** if the target surfaces in the top few despite its keyword being absent, the embedding genuinely inferred the topic — the strongest proof the vector side works. A wrong doc (e.g. B6 landing on 05) means the model is drifting on topic.
+
+---
+
 ## How to read the results
 
 - **Easy** should be near-perfect. If these miss, the index itself is broken, not the embeddings.
 - **Medium** is the real semantic test. Check that the target doc lands in the **top 3**. If it only shows up in Easy queries, the vector side isn't pulling its weight.
 - **Hard** is about *relative* relevance: even a "wrong" doc is informative. E.g. for `turning a small balcony into a pantry`, a hit on 10 is ideal; a hit on 04 (soup/vegetables) is defensible; a hit on 15 (Rust) means the embedding is failing you.
+- **Black** is the anti-keyword trap: the missing keyword must return 0 regex hits, and the target should still surface near the top — it's the cleanest signal that the vector side (not FTS) is doing the work.
 
 ## Two tips for isolating the vector side
 
