@@ -8,7 +8,7 @@ vectile is a search engine for your own stuff. Everything you've written, read, 
 
 Search it by exact words, or just by what you mean. It's fast, keyboard-first, and runs entirely offline. Nothing ever leaves your computer.
 
-**Inspired by [local-rag](https://github.com/sebastianhutter/local-rag).** No Ollama, no cloud, no API keys.
+**Inspired by Sebastian Hutter's [local-rag](https://github.com/sebastianhutter/local-rag).** No Ollama, no cloud, no API keys.
 
 ## What it looks like
 
