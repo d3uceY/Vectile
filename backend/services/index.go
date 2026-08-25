@@ -24,11 +24,12 @@ func (s *IndexService) GetConfig() *config.Config { return s.core.Cfg }
 // SetConfig saves the configuration and applies its side effects
 // (start-on-login). Auto-reindex is read live by the loop in main.
 func (s *IndexService) SetConfig(cfg config.Config) error {
-	// The active model and its batch size are owned by the ModelService (and
-	// applied when a model is activated). The Settings form's config draft may
-	// carry stale copies, so preserve the live values here rather than let a
-	// save revert the active model or its batching.
+	// The active model, its batch size, and the display-name fallback are
+	// owned by the ModelService (and applied when a model is activated). The
+	// Settings form's config draft may carry stale copies, so preserve the
+	// live values here rather than let a save revert them.
 	cfg.ActiveModel = s.core.Cfg.ActiveModel
+	cfg.EmbeddingModel = s.core.Cfg.EmbeddingModel
 	cfg.EmbeddingBatchSize = s.core.Cfg.EmbeddingBatchSize
 	if err := config.Save(&cfg, s.core.CfgPath); err != nil {
 		return err

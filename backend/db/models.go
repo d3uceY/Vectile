@@ -28,14 +28,21 @@ const DefaultVectorDim = 1024
 
 // UpsertModel inserts a model row (by unique path) or updates the fields that
 // may change on a folder re-scan (name, dims) while preserving per-model
-// settings the user may have tuned. Returns the row id.
+// settings the user may have tuned. On conflict it also backfills native
+// defaults the row may be missing: a context_window of 0 is filled from the
+// file's metadata when the file reports one, and a batch_size of 0 (the
+// legacy folder-scan zero-value bug) is repaired. Returns the row id.
 func UpsertModel(conn *sql.DB, m Model) (int64, error) {
 	res, err := conn.Exec(`
 		INSERT INTO models (name, path, dimensions, context_window, batch_size, threads, is_active)
 		VALUES (?, ?, ?, ?, ?, ?, 0)
 		ON CONFLICT(path) DO UPDATE SET
 			name = excluded.name,
-			dimensions = CASE WHEN excluded.dimensions > 0 THEN excluded.dimensions ELSE models.dimensions END`,
+			dimensions = CASE WHEN excluded.dimensions > 0 THEN excluded.dimensions ELSE models.dimensions END,
+			context_window = CASE WHEN models.context_window = 0 AND excluded.context_window > 0
+				THEN excluded.context_window ELSE models.context_window END,
+			batch_size = CASE WHEN models.batch_size <= 0 AND excluded.batch_size > 0
+				THEN excluded.batch_size ELSE models.batch_size END`,
 		m.Name, m.Path, m.Dimensions, m.ContextWindow, m.BatchSize, m.Threads,
 	)
 	if err != nil {

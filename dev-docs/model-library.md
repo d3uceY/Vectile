@@ -14,8 +14,8 @@ it. Now you can:
 - Pick the active model from a dropdown. Any `.gguf` sitting in `models/`
   shows up there even if you never imported it through the UI.
 - Give each model its own settings, stored on its row: embedding dimension
-  (auto-discovered from the GGUF header), context window, batch size, and CPU
-  threads. Those apply when the model is active.
+  and native context window (both auto-discovered from the GGUF header), batch
+  size, and CPU threads. Those apply when the model is active.
 - Switch models freely. If the new model's embedding dimension differs from
   the one the vector tables were built at, the switch waits for you to confirm,
   because changing dimensions wipes every stored embedding and forces a full
@@ -82,15 +82,19 @@ row was the active model, it clears `is_active` and `cfg.ActiveModel` so the
 app falls back to the default instead of pointing at a ghost.
 
 That reconcile is why imports and hand-dropped files behave the same: both end
-up as rows with a path inside `models/`.
+up as rows with a path inside `models/`. The scan stores the native context
+window and the default batch size (32) on the row, and `UpsertModel`'s
+`ON CONFLICT` also backfills any row still holding `0` for either value — so
+rows created before the batch-size default was fixed repair themselves on the
+next scan, without clobbering settings the user tuned.
 
 ### Importing
 
 The Settings button calls `pickModelFile` (native dialog, filtered to
 `.gguf`), then `ImportModel`. The backend checks the extension, reads the GGUF
-header for the dimension, copies the file into `models/` with a collision-safe
-name, and upserts a row. It does not auto-activate. You pick it from the
-dropdown.
+header for the dimension and native context window, copies the file into
+`models/` with a collision-safe name, and upserts a row. It does not
+auto-activate. You pick it from the dropdown.
 
 The copy, rather than referencing the file in place, is deliberate: the app
 owns a copy, so the model survives the original being moved or deleted.
@@ -136,12 +140,18 @@ error and the UI disables the button). Otherwise it deletes the row and, when
 the file lives inside `models/`, the file too. The file removal matters:
 without it, the next folder scan would re-add the model you just deleted.
 
-### Batch size
+### Per-model settings
 
 The indexer reads `cfg.EmbeddingBatchSize`, not the models table, so on
 activation the model's batch size is mirrored into config. Context window and
-threads go straight into the embedder via `SetModel`, where `0` means "use the
-default" (2048 tokens for context, all cores for threads).
+threads go straight into the embedder via `SetModel`.
+
+Context window `0` is a sentinel meaning "the model's native maximum". The
+folder scan and import both read `<arch>.context_length` from the GGUF header
+and store it on the row, and a model that still has `0` (the key absent from
+the file) is passed through to llama.go, which resolves it to
+`llama_model_n_ctx_train` after load — there is no hardcoded 2048 cap anymore.
+Threads `0` means "all cores".
 
 ## Key decisions
 
@@ -152,8 +162,10 @@ default" (2048 tokens for context, all cores for threads).
   real multi-model support means accepting models like nomic-embed-text
   (768d). Since a dim change drops every embedding, it sits behind an explicit
   confirm.
-- **Dims come from the GGUF header, not from loading the model.** Listing
-  models never loads a ~1GB file just to read two numbers.
+- **Dims and native context come from the GGUF header, not from loading the
+  model.** Listing models never loads a ~1GB file just to read two numbers.
+  The scan/import paths keep `context_length` and store it on the row, so each
+  model runs at its real window (8192 for bge-m3) instead of a fixed 2048.
 - **`needsReindex` is computed, not stored.** A dim change empties the vector
   tables for every collection at once, so a per-collection flag would be
   redundant. "Has documents but no embeddings" is exactly the state after a
@@ -169,10 +181,11 @@ default" (2048 tokens for context, all cores for threads).
 ## Gotchas
 
 - **`SetConfig` must not clobber the model fields.** The Settings form saves a
-  whole config draft, and that draft carries stale copies of `active_model`
-  and `embedding_batch_size`, both of which the model flow owns. `SetConfig`
-  in `index.go` preserves both from the live config, or a routine settings
-  save would revert the active model and its batch size.
+  whole config draft, and that draft carries stale copies of `active_model`,
+  `embedding_model`, and `embedding_batch_size`, all of which the model flow
+  owns. `SetConfig` in `index.go` preserves all three from the live config,
+  or a routine settings save would revert the active model, its batch size,
+  and the display-name fallback.
 - **`NewEmbedder` changed signature.** It's now `NewEmbedder(path, ctx,
   threads)`. The test callers in `embed_test.go` and
   `indexer_integration_test.go` had to be updated.
@@ -181,7 +194,15 @@ default" (2048 tokens for context, all cores for threads).
   `<arch>.context_length`. A model that omits these gets dimension `0`, shown
   as "auto", and the real dimension is only confirmed when the model loads.
   Indexing with a wrong dimension fails loudly (sqlite-vec rejects a vector of
-  the wrong length) instead of corrupting anything.
+  the wrong length) instead of corrupting anything. Omitting `context_length`
+  is safe: the row keeps `context_window = 0`, which the embedder treats as
+  "use the native maximum".
+- **Folder-scan rows used to write `batch_size = 0`.** `syncModelsFromFolder`
+  built a zero-value `Model` and `UpsertModel` inserted `batch_size` verbatim,
+  shadowing the schema's `DEFAULT 32`. The scan now sets the default
+  explicitly, and `UpsertModel`'s `ON CONFLICT` backfills any surviving `0`
+  rows (and `0` context windows) on the next scan without touching values the
+  user tuned.
 - **Stub method IDs must match the generated bindings.** `wails3 generate
   bindings` assigns stable IDs, but they still have to be mirrored in
   `scripts/vectile-stub.mjs`: ListModels 4184755701, ImportModel 3637578651,

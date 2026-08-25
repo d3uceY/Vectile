@@ -19,6 +19,12 @@ import (
 // models table in sync with the models/ folder.
 type ModelService struct{ core *Core }
 
+// defaultBatchSize is the embedding batch size applied to models registered by
+// the folder scan (and to UI imports). It matches the schema and config
+// defaults; setting it explicitly keeps a zero-value Model struct from writing
+// a meaningless 0 into batch_size, which would otherwise shadow the DB default.
+const defaultBatchSize = 32
+
 // NewModelService creates a ModelService bound to the shared core.
 func NewModelService(core *Core) *ModelService { return &ModelService{core: core} }
 
@@ -47,7 +53,7 @@ func (s *ModelService) ImportModel(srcPath string) (db.Model, error) {
 	if !strings.EqualFold(filepath.Ext(srcPath), ".gguf") {
 		return db.Model{}, fmt.Errorf("not a GGUF file (expected a .gguf): %q", srcPath)
 	}
-	dims, _, err := embeddings.ReadMetadata(srcPath)
+	dims, context, err := embeddings.ReadMetadata(srcPath)
 	if err != nil {
 		return db.Model{}, fmt.Errorf("read model metadata: %w", err)
 	}
@@ -57,7 +63,7 @@ func (s *ModelService) ImportModel(srcPath string) (db.Model, error) {
 	}
 	id, err := db.UpsertModel(db.DB, db.Model{
 		Name: strings.TrimSuffix(filepath.Base(dest), ".gguf"), Path: dest,
-		Dimensions: dims, BatchSize: 32,
+		Dimensions: dims, ContextWindow: context, BatchSize: defaultBatchSize,
 	})
 	if err != nil {
 		return db.Model{}, err
@@ -216,6 +222,7 @@ func (s *ModelService) applyActive(m db.Model, rebuild bool) error {
 		cfg.EmbeddingBatchSize = m.BatchSize
 	}
 	cfg.ActiveModel = m.Path
+	cfg.EmbeddingModel = m.Name // keep the display-name fallback accurate
 	if err := config.Save(cfg, s.core.CfgPath); err != nil {
 		return err
 	}
@@ -242,11 +249,13 @@ func (s *ModelService) syncModelsFromFolder() (added, removed int, err error) {
 		}
 		p := filepath.Join(dir, e.Name())
 		seen[p] = true
-		dims, _, _ := embeddings.ReadMetadata(p)
+		dims, context, _ := embeddings.ReadMetadata(p)
 		if _, err := db.UpsertModel(db.DB, db.Model{
-			Name:       strings.TrimSuffix(e.Name(), filepath.Ext(e.Name())),
-			Path:       p,
-			Dimensions: dims,
+			Name:          strings.TrimSuffix(e.Name(), filepath.Ext(e.Name())),
+			Path:          p,
+			Dimensions:    dims,
+			ContextWindow: context,
+			BatchSize:     defaultBatchSize,
 		}); err != nil {
 			return added, removed, err
 		}

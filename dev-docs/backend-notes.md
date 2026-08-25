@@ -44,7 +44,7 @@ SQLite driver. `modernc.org/sqlite`, which is pure Go and needs no cgo, plus its
 
 Schema. Modeled on local-rag: `collections`, `sources`, `documents`, two vec0 virtual tables, and an FTS5 table kept in sync by triggers. `vec_documents` holds 1024-float vectors. `vec_documents_bin` holds binary-quantized copies so candidate retrieval is fast; the float vectors are fetched by rowid for the final rerank.
 
-Embedder. Ported from Clipcat. The model loads lazily on the first embed and stays resident. Inference is serialized with a mutex because llama.go's context is not safe for concurrent use. The embedding window is 2048 tokens, plenty for 500-word chunks.
+Embedder. Ported from Clipcat. The model loads lazily on the first embed and stays resident. Inference is serialized with a mutex because llama.go's context is not safe for concurrent use. The context window is the model's native maximum (from the GGUF header; `0` resolves to `llama_model_n_ctx_train`), so bge-m3 runs at 8192 tokens rather than a fixed 2048.
 
 Batching. local-rag embeds with several worker goroutines. vectile uses one worker, because llama.go serializes inference anyway. Chunks are grouped into batches of `embedding_batch_size` and embedded with one model call.
 

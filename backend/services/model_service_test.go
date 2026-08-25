@@ -38,10 +38,20 @@ func modelTestEnv(t *testing.T) *ModelService {
 	return NewModelService(core)
 }
 
-// writeFakeModel drops a fake .gguf (with the given embedding dim in its
-// header) into the models folder and returns its path.
+// writeFakeModel drops a fake .gguf (with the given embedding dim and a native
+// context length in its header) into the models folder and returns its path.
 func writeFakeModel(t *testing.T, name string, dims int) string {
 	t.Helper()
+	path := filepath.Join(appdata.ModelsDir(), name)
+	if err := os.WriteFile(path, fakeGGUFBytes(dims), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// fakeGGUFBytes builds a minimal .gguf header: architecture "bert", the given
+// embedding dim, and a native context length of 8192.
+func fakeGGUFBytes(dims int) []byte {
 	var g bytes.Buffer
 	modelGGUFStr(&g, "general.architecture")
 	_ = binary.Write(&g, binary.LittleEndian, uint32(8))
@@ -49,19 +59,17 @@ func writeFakeModel(t *testing.T, name string, dims int) string {
 	modelGGUFStr(&g, "bert.embedding_length")
 	_ = binary.Write(&g, binary.LittleEndian, uint32(4))
 	_ = binary.Write(&g, binary.LittleEndian, uint32(dims))
+	modelGGUFStr(&g, "bert.context_length")
+	_ = binary.Write(&g, binary.LittleEndian, uint32(4))
+	_ = binary.Write(&g, binary.LittleEndian, uint32(8192))
 
 	var hdr bytes.Buffer
 	_ = binary.Write(&hdr, binary.LittleEndian, uint32(0x46554747))
 	_ = binary.Write(&hdr, binary.LittleEndian, uint32(3))
 	_ = binary.Write(&hdr, binary.LittleEndian, uint64(0))
-	_ = binary.Write(&hdr, binary.LittleEndian, uint64(2))
+	_ = binary.Write(&hdr, binary.LittleEndian, uint64(3))
 	hdr.Write(g.Bytes())
-
-	path := filepath.Join(appdata.ModelsDir(), name)
-	if err := os.WriteFile(path, hdr.Bytes(), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	return path
+	return hdr.Bytes()
 }
 
 func TestSyncModelsFromFolder(t *testing.T) {
@@ -74,6 +82,12 @@ func TestSyncModelsFromFolder(t *testing.T) {
 	}
 	if len(models) != 1 || models[0].Dimensions != 1024 {
 		t.Fatalf("ListModels after scan = %+v, want one 1024d model", models)
+	}
+	// Native context from the GGUF header and the default batch size must be
+	// stored, not left at zero.
+	if models[0].ContextWindow != 8192 || models[0].BatchSize != 32 {
+		t.Fatalf("scanned model settings = ctx %d batch %d, want 8192/32",
+			models[0].ContextWindow, models[0].BatchSize)
 	}
 
 	// File deleted -> row removed on the next fetch.
@@ -109,6 +123,10 @@ func TestImportModelCopiesAndRegisters(t *testing.T) {
 	}
 	if m.Dimensions != 1024 {
 		t.Fatalf("imported dims = %d, want 1024", m.Dimensions)
+	}
+	if m.ContextWindow != 8192 || m.BatchSize != 32 {
+		t.Fatalf("imported settings = ctx %d batch %d, want 8192/32",
+			m.ContextWindow, m.BatchSize)
 	}
 }
 
@@ -188,21 +206,7 @@ func TestDeleteModelActiveBlocked(t *testing.T) {
 
 func mustFakeGGUF(t *testing.T, dims int) []byte {
 	t.Helper()
-	var g bytes.Buffer
-	modelGGUFStr(&g, "general.architecture")
-	_ = binary.Write(&g, binary.LittleEndian, uint32(8))
-	modelGGUFStr(&g, "bert")
-	modelGGUFStr(&g, "bert.embedding_length")
-	_ = binary.Write(&g, binary.LittleEndian, uint32(4))
-	_ = binary.Write(&g, binary.LittleEndian, uint32(dims))
-
-	var hdr bytes.Buffer
-	_ = binary.Write(&hdr, binary.LittleEndian, uint32(0x46554747))
-	_ = binary.Write(&hdr, binary.LittleEndian, uint32(3))
-	_ = binary.Write(&hdr, binary.LittleEndian, uint64(0))
-	_ = binary.Write(&hdr, binary.LittleEndian, uint64(2))
-	hdr.Write(g.Bytes())
-	return hdr.Bytes()
+	return fakeGGUFBytes(dims)
 }
 
 // modelGGUFStr writes a GGUF length-prefixed string into b.

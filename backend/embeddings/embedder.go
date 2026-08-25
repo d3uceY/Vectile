@@ -13,11 +13,6 @@ import (
 	llama "github.com/tcpipuk/llama-go"
 )
 
-// defaultContext is the model context window in tokens when a model doesn't
-// configure one. bge-m3 supports 8192; 2048 gives generous headroom over the
-// chunker's ~500-word chunks.
-const defaultContext = 2048
-
 // State describes the embedder's lifecycle for the UI status pill.
 type State string
 
@@ -37,9 +32,10 @@ type Embedder struct {
 	loadFailed bool
 	loadErr    error
 
-	// ctxSize is the model context window in tokens (0 = defaultContext);
-	// threads is the CPU thread count (0 = runtime.NumCPU()). Both are set
-	// per model by SetModel / NewEmbedder.
+	// ctxSize is the model context window in tokens (0 = the model's native
+	// maximum, resolved by llama.cpp after load); threads is the CPU thread
+	// count (0 = runtime.NumCPU()). Both are set per model by SetModel /
+	// NewEmbedder.
 	ctxSize int
 	threads int
 
@@ -49,8 +45,8 @@ type Embedder struct {
 }
 
 // NewEmbedder returns an Embedder that loads modelPath on first embed. ctxSize
-// is the context window in tokens (0 = defaultContext); threads is the CPU
-// thread count (0 = runtime.NumCPU()).
+// is the context window in tokens (0 = the model's native maximum, resolved by
+// llama.cpp after load); threads is the CPU thread count (0 = runtime.NumCPU()).
 func NewEmbedder(modelPath string, ctxSize, threads int) *Embedder {
 	return &Embedder{modelPath: modelPath, ctxSize: ctxSize, threads: threads}
 }
@@ -129,16 +125,19 @@ func (e *Embedder) ensureLoaded() error {
 		return e.loadErr
 	}
 
-	ctxTokens := e.ctxSize
-	if ctxTokens <= 0 {
-		ctxTokens = defaultContext
-	}
 	threads := e.threads
 	if threads <= 0 {
 		threads = runtime.NumCPU()
 	}
+	// ctxSize 0 is a sentinel llama.go resolves to the model's native maximum
+	// context (llama_model_n_ctx_train) after load, so every model runs at its
+	// real window instead of a hardcoded cap.
+	ctxSize := e.ctxSize
+	if ctxSize < 0 {
+		ctxSize = 0
+	}
 	ctx, err := model.NewContext(
-		llama.WithContext(ctxTokens),
+		llama.WithContext(ctxSize),
 		llama.WithThreads(threads),
 		llama.WithEmbeddings(), // required to get vectors back
 	)

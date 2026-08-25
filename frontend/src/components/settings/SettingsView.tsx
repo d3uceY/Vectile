@@ -512,7 +512,7 @@ export function SettingsView() {
                 <div class="rounded-control border border-line bg-surface/40 p-3">
                   <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
                     {m().name} settings
-                    <InfoTip text="Each model carries its own settings. Context 0 and threads 0 mean the defaults (2048 tokens, all cores)." />
+                    <InfoTip text="Each model carries its own settings. Context window 0 falls back to the model's native maximum (shown here when the .gguf reports one); threads 0 uses all cores." />
                   </p>
                   <div class="data mb-2 truncate text-muted">
                     Dimensions: {m().dimensions > 0 ? m().dimensions : "auto"}
@@ -521,7 +521,7 @@ export function SettingsView() {
                     label="Context window (tokens)"
                     value={modelCtx()}
                     onChange={setModelCtx}
-                    hint="How many tokens the model can read at once. 0 = the default (2048). Raise it for long chunks, lower it to save memory."
+                    hint="How many tokens the model can read at once. 0 = the model's native maximum. This is filled in from the .gguf metadata when the model is registered. Raise it for long chunks, lower it to save memory."
                     min={0}
                     max={8192}
                     step={256}
