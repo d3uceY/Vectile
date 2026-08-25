@@ -9,6 +9,7 @@ import type {
   IndexComplete,
   IndexFileProgress,
   IndexProgress,
+  IndexState,
   ModelState,
   SearchFilters,
   SearchResult,
@@ -208,6 +209,35 @@ export function createAppStore() {
   // "indexing" is only set on a confirmed start so a rejected request (another
   // run in progress) never leaves the buttons permanently disabled — the mute
   // bug where pressing Index did nothing.
+
+  // Seeded loader state shown the instant a run is confirmed, before the
+  // backend has touched its first file (model warm-up + the file walk can take
+  // a moment). The first real indexing:file event overwrites it with counts.
+  const preparingProgress = (name: string): IndexFileProgress => ({
+    collection: name,
+    file: "Preparing…",
+    indexed: 0,
+    total: 0,
+  });
+
+  // The collection names an "Index all" run will touch — enabled + has source
+  // paths — mirroring backend services.configuredCollections.
+  const configuredNames = (): string[] => {
+    const cfg = config();
+    if (!cfg) return [];
+    const disabled = new Set(cfg.disabled_collections);
+    const names: string[] = [];
+    if (cfg.obsidian_vaults.length && !disabled.has("obsidian")) names.push("obsidian");
+    if (cfg.calibre_libraries.length && !disabled.has("calibre")) names.push("calibre");
+    for (const [name, paths] of Object.entries(cfg.repositories)) {
+      if (paths.length && !disabled.has(name)) names.push(name);
+    }
+    for (const [name, paths] of Object.entries(cfg.projects)) {
+      if (paths.length && !disabled.has(name)) names.push(name);
+    }
+    return names;
+  };
+
   const startIndex = async (name: string, force = false) => {
     setIndexLast(null);
     setIndexProgress(null);
@@ -222,6 +252,8 @@ export function createAppStore() {
       pushToast("Another index is already running", "neutral");
       return;
     }
+    // Loader shows immediately — before the first indexing:file event.
+    setIndexByCollection((m) => ({ ...m, [name]: preparingProgress(name) }));
     setIndexing(true);
   };
 
@@ -233,6 +265,13 @@ export function createAppStore() {
       pushToast("Another index is already running", "neutral");
       return;
     }
+    // Seed every collection the run will touch so each row's loader is visible
+    // up front; real per-file events take over as they arrive.
+    setIndexByCollection((m) => {
+      const n = { ...m };
+      for (const name of configuredNames()) n[name] = preparingProgress(name);
+      return n;
+    });
     setIndexAllActive(true);
     setIndexing(true);
   };
@@ -261,6 +300,46 @@ export function createAppStore() {
     }
   };
 
+  // Delete one indexed source (documents + embeddings + FTS). The path stays
+  // configured, so it can be re-indexed. Returns true on success.
+  const deleteSource = async (sourceId: number, label: string): Promise<boolean> => {
+    try {
+      const removed = await api.deleteSource(sourceId);
+      pushToast(
+        `Removed ${label} from the index · ${removed} chunk${removed === 1 ? "" : "s"}`,
+        "success",
+      );
+      void refresh();
+      void loadLibrary();
+      return true;
+    } catch (err) {
+      pushToast(`Delete failed: ${err}`, "danger");
+      return false;
+    }
+  };
+
+  // Delete a whole collection: indexed data (sources, documents, embeddings,
+  // FTS) plus its config entry, so it won't resurrect on the next index pass.
+  // Returns true on success.
+  const deleteCollection = async (name: string, label: string): Promise<boolean> => {
+    try {
+      const removed = await api.deleteCollection(name);
+      pushToast(
+        `Deleted ${label} · ${removed.toLocaleString()} chunk${removed === 1 ? "" : "s"} removed`,
+        "success",
+      );
+      setExpandedCollection(null);
+      setSelectedDoc(null);
+      await loadConfig();
+      void refresh();
+      void loadLibrary();
+      return true;
+    } catch (err) {
+      pushToast(`Delete failed: ${err}`, "danger");
+      return false;
+    }
+  };
+
   // Indexing events emitted by the backend IndexService.
   const offProgress = Events.On("indexing:progress", (ev) =>
     setIndexProgress(ev.data as IndexProgress),
@@ -278,16 +357,22 @@ export function createAppStore() {
     });
     setIndexProgress(null);
     setIndexLast(e);
-    setIndexing(false);
+    // A single-collection run ends on its complete event. An IndexAll keeps
+    // indexing=true until indexing:all-done, so the UI doesn't flip to "done"
+    // between collections (which made it look like nothing was running).
+    if (!indexAllActive()) {
+      setIndexing(false);
+      // Reload for single-collection runs; an IndexAll reloads once on
+      // indexing:all-done instead (one loadLibrary per collection was heavy).
+      void loadLibrary();
+    }
     void refresh();
-    // Reload for single-collection runs; an IndexAll reloads once on
-    // indexing:all-done instead (one loadLibrary per collection was heavy).
-    if (!indexAllActive()) void loadLibrary();
     if (e.errors > 0) pushToast(`${e.collection}: ${e.errors} error(s)`, "danger");
     else pushToast(`Indexed ${e.collection} · ${e.indexed} new`, "success");
   });
   const offAllDone = Events.On("indexing:all-done", () => {
     setIndexAllActive(false);
+    setIndexing(false); // the whole all-run is done — clear the in-progress state
     void loadLibrary(); // browse picks up freshly indexed files once, not per collection
   });
   const offCancelled = Events.On("indexing:cancelled", (ev) => {
@@ -299,6 +384,7 @@ export function createAppStore() {
     });
     setIndexProgress(null);
     setIndexing(false);
+    setIndexAllActive(false); // a cancelled all-run is done too
     void refresh();
     pushToast(`Indexing ${e.collection} cancelled · ${e.indexed} indexed`, "neutral");
   });
@@ -307,9 +393,34 @@ export function createAppStore() {
     if (n > 0) pushToast(`Pruned ${n} stale sources`, "neutral");
   });
 
+  // A freshly loaded frontend has no idea the backend is mid-index (events
+  // emitted before it subscribed are lost), so on mount we ask the backend for
+  // the current run and rebuild the indexing state. Live events still drive
+  // every update after that — this only seeds the initial state on (re)load.
+  const hydrateIndexing = async () => {
+    try {
+      const st = await api.getIndexingState();
+      // Older backends / the dev stub may not answer this yet; only apply a
+      // well-formed snapshot so we never clobber real event state with junk.
+      if (!st || typeof st !== "object" || typeof (st as { active?: unknown }).active !== "boolean") {
+        return;
+      }
+      const s = st as IndexState;
+      if (!s.active) return; // nothing running — keep the default idle state
+      setIndexing(true);
+      setIndexAllActive(Boolean(s.all));
+      const map: Record<string, IndexFileProgress> = {};
+      for (const [name, p] of Object.entries(s.collections ?? {})) map[name] = p;
+      setIndexByCollection(map);
+    } catch {
+      /* backend not ready yet */
+    }
+  };
+
   onMount(() => {
     void refresh();
     void loadConfig();
+    void hydrateIndexing();
   });
   onCleanup(() => {
     offProgress();
@@ -357,6 +468,8 @@ export function createAppStore() {
     cancelIndex,
     runPrune,
     toggleCollection,
+    deleteSource,
+    deleteCollection,
     toasts,
     pushToast,
     dismissToast,

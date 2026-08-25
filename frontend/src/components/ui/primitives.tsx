@@ -334,3 +334,42 @@ export function ToastStack(props: {
     </div>
   );
 }
+
+/* ---------------- ConfirmDialog ---------------- */
+
+export function ConfirmDialog(props: {
+  open: boolean;
+  title: string;
+  body: JSX.Element;
+  confirmLabel?: string;
+  busy?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Show when={props.open}>
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 p-4"
+        onClick={props.busy ? undefined : props.onCancel}
+      >
+        <div class="sheet w-[22rem] p-5 shadow-pop" onClick={(e) => e.stopPropagation()}>
+          <h3 class="title text-[15px] tracking-[-0.01em] text-ink">{props.title}</h3>
+          <div class="read mt-2 text-[13.5px] leading-5 text-muted">{props.body}</div>
+          <div class="mt-4 flex justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={props.onCancel} disabled={props.busy}>
+              Keep
+            </Button>
+            <button
+              type="button"
+              onClick={props.onConfirm}
+              disabled={props.busy}
+              class="inline-flex h-8 select-none items-center justify-center gap-2 rounded-control bg-danger px-3 text-[13px] font-medium text-white transition-all duration-150 ease-snappy active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none"
+            >
+              {props.busy ? "Deleting…" : (props.confirmLabel ?? "Delete")}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Show>
+  );
+}

@@ -110,6 +110,83 @@ export class Document {
 }
 
 /**
+ * IndexFileProgress is emitted per successfully indexed file during a run,
+ * scoped to the collection being indexed so the frontend can increment its
+ * per-collection file count.
+ */
+export class IndexFileProgress {
+    "collection": string;
+    "file": string;
+    "indexed": number;
+    "total": number;
+
+    /** Creates a new IndexFileProgress instance. */
+    constructor($$source: Partial<IndexFileProgress> = {}) {
+        if (!("collection" in $$source)) {
+            this["collection"] = "";
+        }
+        if (!("file" in $$source)) {
+            this["file"] = "";
+        }
+        if (!("indexed" in $$source)) {
+            this["indexed"] = 0;
+        }
+        if (!("total" in $$source)) {
+            this["total"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new IndexFileProgress instance from a string or object.
+     */
+    static createFrom($$source: any = {}): IndexFileProgress {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new IndexFileProgress($$parsedSource as Partial<IndexFileProgress>);
+    }
+}
+
+/**
+ * IndexState is a snapshot of the active index run, returned by
+ * GetIndexingState so a frontend that reloads or reconnects mid-run can
+ * rebuild its indexing UI instead of showing nothing. Live updates still
+ * arrive as events; this is only the initial state on (re)load.
+ */
+export class IndexState {
+    "active": boolean;
+    "all": boolean;
+    "collections": { [_ in string]?: IndexFileProgress };
+
+    /** Creates a new IndexState instance. */
+    constructor($$source: Partial<IndexState> = {}) {
+        if (!("active" in $$source)) {
+            this["active"] = false;
+        }
+        if (!("all" in $$source)) {
+            this["all"] = false;
+        }
+        if (!("collections" in $$source)) {
+            this["collections"] = {};
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new IndexState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): IndexState {
+        const $$createField2_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("collections" in $$parsedSource) {
+            $$parsedSource["collections"] = $$createField2_0($$parsedSource["collections"]);
+        }
+        return new IndexState($$parsedSource as Partial<IndexState>);
+    }
+}
+
+/**
  * Source is one indexed source.
  */
 export class Source {
@@ -204,3 +281,7 @@ export class Status {
         return new Status($$parsedSource as Partial<Status>);
     }
 }
+
+// Private type creation functions
+const $$createType0 = IndexFileProgress.createFrom;
+const $$createType1 = $Create.Map($Create.Any, $$createType0);

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sort"
 
@@ -89,9 +90,11 @@ func (s *IndexService) IndexCollection(name string, force bool) (bool, error) {
 	}
 	go func() {
 		defer s.unlockIndex()
+		s.core.resetIndexRun(false)
 		ctx := s.core.newIndexContext()
 		defer s.core.clearIndexContext()
 		s.runIndex(ctx, name, force)
+		s.core.clearIndexRun()
 	}()
 	return true, nil
 }
@@ -103,6 +106,7 @@ func (s *IndexService) IndexAll(force bool) (bool, error) {
 	}
 	go func() {
 		defer s.unlockIndex()
+		s.core.resetIndexRun(true)
 		ctx := s.core.newIndexContext()
 		defer s.core.clearIndexContext()
 		if pr := indexer.PruneAll(db.DB, s.core.Cfg); pr.Pruned > 0 {
@@ -118,6 +122,7 @@ func (s *IndexService) IndexAll(force bool) (bool, error) {
 		// cancellation): the frontend reloads the library exactly once here
 		// instead of once per collection.
 		s.core.App.Event.Emit("indexing:all-done", nil)
+		s.core.clearIndexRun()
 	}()
 	return true, nil
 }
@@ -136,11 +141,138 @@ func (s *IndexService) Prune(name string) (indexer.PruneResult, error) {
 	return *indexer.PruneCollection(db.DB, s.core.Cfg, name), nil
 }
 
+// DeleteSource removes one indexed source and everything cascading from it:
+// its documents (FTS cleared via the delete trigger) and its float + binary
+// embeddings. The source's path stays in config — this is one file among many
+// — so the next index pass will re-add it if the file still exists on disk.
+// Returns the number of documents removed, and errors if the source does not
+// exist or an index run is in progress.
+func (s *IndexService) DeleteSource(sourceID int64) (int64, error) {
+	if s.IsIndexing() {
+		return 0, fmt.Errorf("cannot delete while an index run is in progress")
+	}
+	n, err := db.DeleteSourceData(db.DB, sourceID)
+	if err != nil {
+		return 0, err
+	}
+	if n == 0 {
+		return 0, fmt.Errorf("source %d not found", sourceID)
+	}
+	return n, nil
+}
+
+// DeleteCollection removes a collection and everything cascading from it:
+// its sources, documents (FTS cleared via the delete trigger), float + binary
+// embeddings, and the collection row. It also removes the collection's config
+// entry — an obsidian/calibre collection owns all its vault/library paths, a
+// project/repo collection owns its whole group — so it does not silently
+// resurrect on the next index pass. Files on disk are never touched. Works
+// even when the collection was never indexed (config-only). Returns the
+// number of documents removed.
+func (s *IndexService) DeleteCollection(name string) (int64, error) {
+	if s.IsIndexing() {
+		return 0, fmt.Errorf("cannot delete while an index run is in progress")
+	}
+
+	// Remove indexed data first (if any), so a failed delete leaves config
+	// untouched and the collection still visible.
+	var deleted int64
+	var id int64
+	err := db.DB.QueryRow("SELECT id FROM collections WHERE name = ?", name).Scan(&id)
+	switch {
+	case err == nil:
+		n, derr := db.DeleteCollectionData(db.DB, id)
+		if derr != nil {
+			return 0, derr
+		}
+		deleted = n
+	case err == sql.ErrNoRows:
+		// Never indexed — nothing to delete from the DB, just config below.
+	default:
+		return 0, err
+	}
+
+	// Drop the config entry so the collection doesn't come back on the next
+	// index/auto-reindex pass.
+	cfg := s.core.Cfg
+	switch name {
+	case "obsidian":
+		cfg.ObsidianVaults = nil
+	case "calibre":
+		cfg.CalibreLibraries = nil
+	default:
+		delete(cfg.Projects, name)
+		delete(cfg.Repositories, name)
+	}
+	cfg.DisabledCollections = removeStr(cfg.DisabledCollections, name)
+	if err := s.persistConfig(); err != nil {
+		return 0, err
+	}
+	return deleted, nil
+}
+
 // IsIndexing reports whether an index run is in progress.
 func (s *IndexService) IsIndexing() bool {
 	s.core.indexMu.Lock()
 	defer s.core.indexMu.Unlock()
 	return s.core.indexing
+}
+
+// GetIndexingState returns a snapshot of the active index run (if any) so a
+// frontend that reloads or reconnects mid-run can rebuild the indexing UI
+// instead of showing nothing. Live updates still arrive as events; this only
+// seeds the initial state on (re)load.
+func (s *IndexService) GetIndexingState() IndexState {
+	s.core.indexMu.Lock()
+	active := s.core.indexing
+	s.core.indexMu.Unlock()
+
+	s.core.progressMu.Lock()
+	defer s.core.progressMu.Unlock()
+	st := IndexState{Active: active, All: s.core.allRun}
+	if len(s.core.progress) > 0 {
+		st.Collections = make(map[string]IndexFileProgress, len(s.core.progress))
+		for k, v := range s.core.progress {
+			st.Collections[k] = v
+		}
+	}
+	return st
+}
+
+// resetIndexRun clears the live-progress snapshot at the start of a fresh run.
+func (c *Core) resetIndexRun(all bool) {
+	c.progressMu.Lock()
+	defer c.progressMu.Unlock()
+	c.allRun = all
+	c.progress = map[string]IndexFileProgress{}
+}
+
+// recordIndexProgress stores the latest per-file progress for a collection so
+// a (re)connecting frontend can reconstruct it.
+func (c *Core) recordIndexProgress(p IndexFileProgress) {
+	c.progressMu.Lock()
+	defer c.progressMu.Unlock()
+	if c.progress != nil {
+		c.progress[p.Collection] = p
+	}
+}
+
+// clearIndexProgress drops a collection from the live snapshot once its run
+// completes (or is cancelled).
+func (c *Core) clearIndexProgress(collection string) {
+	c.progressMu.Lock()
+	defer c.progressMu.Unlock()
+	if c.progress != nil {
+		delete(c.progress, collection)
+	}
+}
+
+// clearIndexRun drops the whole live snapshot at the end of a run.
+func (c *Core) clearIndexRun() {
+	c.progressMu.Lock()
+	defer c.progressMu.Unlock()
+	c.allRun = false
+	c.progress = nil
 }
 
 func (s *IndexService) lockIndex() bool {
@@ -164,9 +296,9 @@ func (s *IndexService) runIndex(ctx context.Context, name string, force bool) {
 	cfg := s.core.Cfg
 	progress := func(current, total int, item string) {
 		// Per-file event: the frontend increments its per-collection count.
-		s.core.App.Event.Emit("indexing:file", IndexFileProgress{
-			Collection: name, File: item, Indexed: current, Total: total,
-		})
+		p := IndexFileProgress{Collection: name, File: item, Indexed: current, Total: total}
+		s.core.recordIndexProgress(p)
+		s.core.App.Event.Emit("indexing:file", p)
 		// Throttled aggregate progress (the old shape), kept for summaries.
 		if current == total || current%25 == 0 {
 			s.core.App.Event.Emit("indexing:progress", IndexProgress{
@@ -201,6 +333,7 @@ func (s *IndexService) runIndex(ctx context.Context, name string, force bool) {
 		s.core.App.Event.Emit("indexing:cancelled", IndexCancelled{
 			Collection: name, Indexed: result.Indexed, Skipped: result.Skipped, Errors: result.Errors,
 		})
+		s.core.clearIndexProgress(name)
 		return
 	}
 
@@ -211,6 +344,7 @@ func (s *IndexService) runIndex(ctx context.Context, name string, force bool) {
 		Errors:     result.Errors,
 		Messages:   result.ErrorMessages,
 	})
+	s.core.clearIndexProgress(name)
 }
 
 // configuredCollections returns the enabled, configured collections in a

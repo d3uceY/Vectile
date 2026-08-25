@@ -25,6 +25,14 @@ type Core struct {
 	indexMu  sync.Mutex // serializes index/prune runs
 	indexing bool
 
+	// progressMu guards the live snapshot of the active index run (latest
+	// per-collection progress + whether it's an "Index all"), so a frontend
+	// that reloads or reconnects mid-run can rebuild its indexing UI. Events
+	// remain the live update channel; this only seeds the initial state.
+	progressMu sync.Mutex
+	progress   map[string]IndexFileProgress
+	allRun     bool
+
 	// cancelMu guards the active run's cancel func, so the user can abort an
 	// index from the frontend between batches.
 	cancelMu sync.Mutex
@@ -138,4 +146,14 @@ type IndexCancelled struct {
 	Indexed    int    `json:"indexed"`
 	Skipped    int    `json:"skipped"`
 	Errors     int    `json:"errors"`
+}
+
+// IndexState is a snapshot of the active index run, returned by
+// GetIndexingState so a frontend that reloads or reconnects mid-run can
+// rebuild its indexing UI instead of showing nothing. Live updates still
+// arrive as events; this is only the initial state on (re)load.
+type IndexState struct {
+	Active      bool                         `json:"active"`
+	All         bool                         `json:"all"`
+	Collections map[string]IndexFileProgress `json:"collections"`
 }

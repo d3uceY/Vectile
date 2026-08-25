@@ -17,6 +17,10 @@ import * as config$0 from "../config/models.js";
 // @ts-ignore: Unused imports
 import * as indexer$0 from "../indexer/models.js";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 /**
  * AddSourcePath adds a source path. kind is "vault", "calibre", "project", or
  * "repo"; name is the collection name for project/repo (ignored otherwise).
@@ -34,11 +38,49 @@ export function CancelIndexing(): $CancellablePromise<boolean> {
 }
 
 /**
+ * DeleteCollection removes a collection and everything cascading from it:
+ * its sources, documents (FTS cleared via the delete trigger), float + binary
+ * embeddings, and the collection row. It also removes the collection's config
+ * entry — an obsidian/calibre collection owns all its vault/library paths, a
+ * project/repo collection owns its whole group — so it does not silently
+ * resurrect on the next index pass. Files on disk are never touched. Works
+ * even when the collection was never indexed (config-only). Returns the
+ * number of documents removed.
+ */
+export function DeleteCollection(name: string): $CancellablePromise<number> {
+    return $Call.ByID(3393632225, name);
+}
+
+/**
+ * DeleteSource removes one indexed source and everything cascading from it:
+ * its documents (FTS cleared via the delete trigger) and its float + binary
+ * embeddings. The source's path stays in config — this is one file among many
+ * — so the next index pass will re-add it if the file still exists on disk.
+ * Returns the number of documents removed, and errors if the source does not
+ * exist or an index run is in progress.
+ */
+export function DeleteSource(sourceID: number): $CancellablePromise<number> {
+    return $Call.ByID(2650919656, sourceID);
+}
+
+/**
  * GetConfig returns the current configuration.
  */
 export function GetConfig(): $CancellablePromise<config$0.Config | null> {
     return $Call.ByID(2113296768).then(($result: any) => {
         return $$createType1($result);
+    });
+}
+
+/**
+ * GetIndexingState returns a snapshot of the active index run (if any) so a
+ * frontend that reloads or reconnects mid-run can rebuild the indexing UI
+ * instead of showing nothing. Live updates still arrive as events; this only
+ * seeds the initial state on (re)load.
+ */
+export function GetIndexingState(): $CancellablePromise<$models.IndexState> {
+    return $Call.ByID(148853163).then(($result: any) => {
+        return $$createType2($result);
     });
 }
 
@@ -72,7 +114,7 @@ export function IsIndexing(): $CancellablePromise<boolean> {
  */
 export function Prune(name: string): $CancellablePromise<indexer$0.PruneResult> {
     return $Call.ByID(624196390, name).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
@@ -101,4 +143,5 @@ export function ToggleCollectionEnabled(name: string, enabled: boolean): $Cancel
 // Private type creation functions
 const $$createType0 = config$0.Config.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = indexer$0.PruneResult.createFrom;
+const $$createType2 = $models.IndexState.createFrom;
+const $$createType3 = indexer$0.PruneResult.createFrom;

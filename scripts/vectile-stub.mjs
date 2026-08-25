@@ -16,6 +16,9 @@ const M = {
   ListDocuments: 1318390221,
   Search: 2587852292,
   GetConfig: 2113296768,
+  DeleteSource: 2650919656,
+  DeleteCollection: 3393632225,
+  GetIndexingState: 148853163,
 };
 
 const MODEL_NAME = "bge-m3";
@@ -66,7 +69,7 @@ const collections = [
   { id: 5, name: "vectile", type: "code", description: "this repo — backend, frontend, and git history", sources: 6, chunks: 4831, created: "2026-08-24", enabled: true },
 ];
 
-const sources = [
+let sources = [
   // calibre
   { id: 11, collectionId: 1, sourceType: "epub", path: "C:\\Users\\you\\Calibre Library\\Bronson\\The Nudist on the Late Shift", chunks: 310, lastIndexed: "2025-11-02" },
   { id: 12, collectionId: 1, sourceType: "pdf", path: "C:\\Users\\you\\Calibre Library\\Luksa\\Kubernetes in Action", chunks: 820, lastIndexed: "2025-11-02" },
@@ -100,7 +103,7 @@ const sources = [
   { id: 56, collectionId: 5, sourceType: "commit", path: "C:\\Users\\you\\code\\vectile\\.git", chunks: 2794, lastIndexed: "2026-08-24" },
 ];
 
-const documents = [
+let documents = [
   // calibre — epub
   { id: 1111, sourceId: 11, collectionId: 1, chunkIndex: 0, title: "Prologue — the late shift", content: "The late shift in the Valley started quietly: a handful of engineers in a rented office, shipping while the rest of the industry slept. Nobody set out to make a culture of it. It just turned out that the work got done at night, and the morning was for arguing about what had been built.", metadata: { page: 3 } },
   { id: 1112, sourceId: 11, collectionId: 1, chunkIndex: 1, title: "Chapter 1 — two founders", content: "Both founders came from support desks. That was the whole trick, they said: they knew what the users typed when they were stuck. So the product was built from search logs, not from a vision deck.", metadata: { page: 17 } },
@@ -234,6 +237,37 @@ export async function stub(request) {
       return { body: searchResults };
     case M.GetConfig:
       return { body: config };
+    case M.GetIndexingState:
+      // The screenshot stub is idle; the real backend reports an active run so
+      // a freshly loaded frontend can rebuild the indexing UI after a reload.
+      return { body: { active: false, all: false, collections: {} } };
+    case M.DeleteSource: {
+      const sourceId = post.args?.args?.[0];
+      const s = sources.find((x) => x.id === sourceId);
+      if (!s) return { body: 0 };
+      const removed = documents.filter((d) => d.sourceId === s.id).length;
+      documents = documents.filter((d) => d.sourceId !== s.id);
+      sources = sources.filter((x) => x.id !== sourceId);
+      return { body: removed };
+    }
+    case M.DeleteCollection: {
+      const name = post.args?.args?.[0];
+      const idx = collections.findIndex((c) => c.name === name);
+      if (idx === -1) return { body: 0 };
+      const coll = collections[idx];
+      const removed = documents.filter((d) => d.collectionId === coll.id).length;
+      documents = documents.filter((d) => d.collectionId !== coll.id);
+      sources = sources.filter((s) => s.collectionId !== coll.id);
+      collections.splice(idx, 1);
+      // Mirror the backend: drop the config entry too so it doesn't come back.
+      if (name === "obsidian") config.obsidian_vaults = [];
+      else if (name === "calibre") config.calibre_libraries = [];
+      else {
+        delete config.projects[name];
+        delete config.repositories[name];
+      }
+      return { body: removed };
+    }
     default:
       // Harmless ack for anything else (void methods, unknown IDs).
       return { body: true };

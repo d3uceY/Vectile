@@ -1,7 +1,7 @@
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { useAppStore } from "../../lib/store";
-import { ChevronDown, LibraryIcon } from "../ui/icons";
-import { Button, Chip, EmptyState, ViewHeading } from "../ui/primitives";
+import { ChevronDown, LibraryIcon, TrashIcon } from "../ui/icons";
+import { Button, Chip, ConfirmDialog, EmptyState, ViewHeading } from "../ui/primitives";
 import { GridPattern } from "../ui/patterns";
 
 const typeLabel: Record<string, string> = {
@@ -29,6 +29,28 @@ export function LibraryView() {
     const next = open() === String(id) ? null : String(id);
     store.setExpandedCollection(next);
     if (next !== null) void store.loadSources(id);
+  };
+
+  // Confirmation state for deleting a collection or a source. The whole row
+  // toggles expansion, so the delete affordance is a sibling button, not a
+  // nested one.
+  const [confirm, setConfirm] = createSignal<
+    | { kind: "collection"; id: number; name: string; type: string; chunks: number }
+    | { kind: "source"; id: number; name: string; path: string; chunks: number }
+    | null
+  >(null);
+  const [deleting, setDeleting] = createSignal(false);
+
+  const doDelete = async () => {
+    const t = confirm();
+    if (!t) return;
+    setDeleting(true);
+    const ok =
+      t.kind === "collection"
+        ? await store.deleteCollection(t.name, t.name)
+        : await store.deleteSource(t.id, t.path.split(/[\\/]/).pop() || t.path);
+    setDeleting(false);
+    if (ok) setConfirm(null);
   };
 
   return (
@@ -74,31 +96,50 @@ export function LibraryView() {
                 const sources = () => store.sources().filter((s) => s.collectionId === c.id);
                 return (
                   <li>
-                    <button
-                      class={`grid w-full grid-cols-12 items-center gap-2 px-5 py-3.5 text-left transition-colors duration-100 ease-snappy ${
-                        isOpen() ? "bg-mint/40" : "hover:bg-surface"
-                      }`}
-                      onClick={() => toggle(c.id)}
-                      aria-expanded={isOpen()}
-                    >
-                      <span class="col-span-5 flex items-center gap-2.5">
-                        <ChevronDown
-                          size={14}
-                          class={`shrink-0 text-faint transition-transform duration-150 ease-snappy ${
-                            isOpen() ? "rotate-0" : "-rotate-90"
-                          }`}
-                        />
-                        <span class="flex min-w-0 items-center gap-2">
-                          <span class="title truncate text-[14px] text-ink">{c.name}</span>
-                          <TypeBadge type={c.type} />
+                    <div class="flex items-stretch">
+                      <button
+                        class={`grid flex-1 grid-cols-12 items-center gap-2 px-5 py-3.5 text-left transition-colors duration-100 ease-snappy ${
+                          isOpen() ? "bg-mint/40" : "hover:bg-surface"
+                        }`}
+                        onClick={() => toggle(c.id)}
+                        aria-expanded={isOpen()}
+                      >
+                        <span class="col-span-6 flex items-center gap-2.5">
+                          <ChevronDown
+                            size={14}
+                            class={`shrink-0 text-faint transition-transform duration-150 ease-snappy ${
+                              isOpen() ? "rotate-0" : "-rotate-90"
+                            }`}
+                          />
+                          <span class="flex min-w-0 items-center gap-2">
+                            <span class="title truncate text-[14px] text-ink">{c.name}</span>
+                            <TypeBadge type={c.type} />
+                          </span>
                         </span>
-                      </span>
-                      <span class="data col-span-3 text-muted">{sources().length} files</span>
-                      <span class="data col-span-2 text-right text-muted">
-                        {c.chunks.toLocaleString()}
-                      </span>
-                      <span class="data col-span-2 text-right text-faint">{c.created}</span>
-                    </button>
+                        <span class="data col-span-2 text-muted">{sources().length} files</span>
+                        <span class="data col-span-2 text-right text-muted">
+                          {c.chunks.toLocaleString()}
+                        </span>
+                        <span class="data col-span-2 text-right text-faint">{c.created}</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="flex shrink-0 items-center px-3.5 text-faint opacity-0 transition-opacity duration-100 ease-snappy hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+                        onClick={() =>
+                          setConfirm({
+                            kind: "collection",
+                            id: c.id,
+                            name: c.name,
+                            type: c.type,
+                            chunks: c.chunks,
+                          })
+                        }
+                        aria-label={`Delete collection ${c.name}`}
+                        title={`Delete ${c.name} from the index and Settings`}
+                      >
+                        <TrashIcon size={15} />
+                      </button>
+                    </div>
 
                     <Show when={isOpen()}>
                       <div class="border-t border-line bg-paper/70 px-6 py-3">
@@ -106,13 +147,28 @@ export function LibraryView() {
                         <ul class="space-y-1">
                           <For each={sources()}>
                             {(s) => (
-                              <li class="flex items-center gap-2 overflow-hidden rounded-lg px-2 py-1.5 hover:bg-surface">
+                              <li class="group flex items-center gap-2 overflow-hidden rounded-lg px-2 py-1.5 hover:bg-surface">
                                 <span class="data shrink-0 text-leaf-deep">{s.sourceType}</span>
                                 <span class="h-3 w-px shrink-0 bg-line-strong" aria-hidden="true" />
-                                <span class="data truncate text-ink-soft">{s.path}</span>
-                                <span class="data ml-auto shrink-0 text-faint">
-                                  {s.chunks} chunks
-                                </span>
+                                <span class="data min-w-0 flex-1 truncate text-ink-soft">{s.path}</span>
+                                <span class="data shrink-0 text-faint">{s.chunks} chunks</span>
+                                <button
+                                  type="button"
+                                  class="shrink-0 text-faint opacity-0 transition-opacity duration-100 ease-snappy hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+                                  onClick={() =>
+                                    setConfirm({
+                                      kind: "source",
+                                      id: s.id,
+                                      name: s.path.split(/[\\/]/).pop() || s.path,
+                                      path: s.path,
+                                      chunks: s.chunks,
+                                    })
+                                  }
+                                  aria-label={`Delete source ${s.path}`}
+                                  title={`Remove ${s.path} from the index`}
+                                >
+                                  <TrashIcon size={14} />
+                                </button>
                               </li>
                             )}
                           </For>
@@ -135,6 +191,36 @@ export function LibraryView() {
         </div>
         </Show>
       </div>
+
+      <ConfirmDialog
+        open={confirm() !== null}
+        title={confirm()?.kind === "collection" ? `Delete ${confirm()!.name}?` : "Remove this file from the index?"}
+        busy={deleting()}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => void doDelete()}
+        body={(() => {
+          const t = confirm();
+          if (t?.kind === "collection") {
+            return (
+              <p>
+                Removes <span class="font-medium text-ink">“{t.name}”</span> and its{" "}
+                <span class="font-medium text-ink">{t.chunks.toLocaleString()} chunks</span> from
+                the index, and removes it from Settings
+                {t.type === "system" ? " (all its vault/library paths)." : " (the whole group)."}{" "}
+                The files on disk are untouched — re-add the source in Settings to index it again.
+              </p>
+            );
+          }
+          return (
+            <p>
+              Removes <span class="font-medium text-ink">“{t?.name}”</span> and its{" "}
+              <span class="font-medium text-ink">{t?.chunks.toLocaleString()} chunks</span> from the
+              index. The file stays on disk and the path stays configured, so a re-index can bring
+              it back.
+            </p>
+          );
+        })()}
+      />
     </div>
   );
 }

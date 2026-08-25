@@ -10,6 +10,7 @@ import type {
   AppConfig,
   Collection,
   Document,
+  IndexState,
   SearchFilters,
   SearchResult,
   Source,
@@ -81,8 +82,30 @@ export async function cancelIndexing(): Promise<boolean> {
   return IndexService.CancelIndexing() as unknown as boolean;
 }
 
+/**
+ * Returns a snapshot of the active index run (if any) so a freshly loaded
+ * frontend can rebuild the indexing UI after a reload/reconnect. Live updates
+ * still arrive as events; this only seeds the initial state.
+ */
+export async function getIndexingState(): Promise<IndexState> {
+  return IndexService.GetIndexingState() as unknown as IndexState;
+}
+
 export async function prune(name: string): Promise<void> {
   await IndexService.Prune(name);
+}
+
+/** Deletes one indexed source and everything cascading from it (documents,
+    embeddings, FTS). The path stays in config. Returns docs removed. */
+export async function deleteSource(sourceId: number): Promise<number> {
+  return IndexService.DeleteSource(sourceId) as unknown as number;
+}
+
+/** Deletes a collection and everything cascading from it, and removes its
+    config entry so it doesn't come back on the next index pass. Returns docs
+    removed. */
+export async function deleteCollection(name: string): Promise<number> {
+  return IndexService.DeleteCollection(name) as unknown as number;
 }
 
 /**

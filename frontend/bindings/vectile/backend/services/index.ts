@@ -13,6 +13,8 @@ export {
 export {
     Collection,
     Document,
+    IndexFileProgress,
+    IndexState,
     Source,
     Status
 } from "./models.js";

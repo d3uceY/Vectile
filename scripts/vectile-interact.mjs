@@ -47,8 +47,10 @@ export async function interact(page, job) {
   }
 
   if (view === "library") {
-    // Wait for collections, then expand the first row so its sources are visible.
-    const firstRow = page.locator("ul.divide-y > li:first-child > button");
+    // Wait for collections, then expand the first row so its sources are
+    // visible. The row is a flex div now (toggle + delete button siblings),
+    // so target the toggle by its aria-expanded attribute.
+    const firstRow = page.locator("ul.divide-y > li:first-child button[aria-expanded]");
     await firstRow.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
     if (await firstRow.count()) {
       await firstRow.first().click();

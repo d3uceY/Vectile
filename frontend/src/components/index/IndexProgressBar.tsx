@@ -25,6 +25,10 @@ export function IndexProgressBar(props: {
     return Math.min(96, Math.round(raw * 10) / 10); // hold at 96% until complete
   };
 
+  // total <= 0 means the run just started and hasn't counted its first file
+  // yet — show an indeterminate "Preparing…" state rather than a stalled 0/0.
+  const preparing = () => props.total <= 0;
+
   return (
     <div
       class="index-progress"
@@ -32,18 +36,24 @@ export function IndexProgressBar(props: {
       aria-label={`Indexing ${props.collection}`}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuenow={Math.round(pct())}
+      aria-valuenow={preparing() ? undefined : Math.round(pct())}
     >
       <div class="index-progress__track">
-        <div class="index-progress__fill" style={{ width: `${pct()}%` }}>
+        <div
+          class="index-progress__fill"
+          classList={{ "index-progress__fill--preparing": preparing() }}
+          style={{ width: preparing() ? "36%" : `${pct()}%` }}
+        >
           <span class="index-progress__shine" aria-hidden="true" />
         </div>
       </div>
       <div class="mt-1.5 flex items-center gap-2">
         <span class="data truncate text-faint">{props.file ?? ""}</span>
-        <span class="data shrink-0 text-leaf-deep">
-          {props.current}/{props.total}
-        </span>
+        <Show when={!preparing()}>
+          <span class="data shrink-0 text-leaf-deep">
+            {props.current}/{props.total}
+          </span>
+        </Show>
         <Show when={props.onCancel}>
           <button
             type="button"

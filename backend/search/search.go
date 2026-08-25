@@ -133,6 +133,13 @@ func vectorSearch(db *sql.DB, query string, topK int, filters *Filters, embedder
 	if err != nil {
 		return nil, fmt.Errorf("embed query: %w", err)
 	}
+	// TEMP DEBUG: verify the query actually produced a real embedding.
+	// slog.Info("[vector-debug] embedded query",
+	// 	"query", query,
+	// 	"dim", len(queryVec),
+	// 	"l2norm", vectorNorm(queryVec),
+	// 	"first8", queryVec[:min(8, len(queryVec))],
+	// )
 	queryBlob := embeddings.SerializeFloat32(queryVec)
 	pool := vectorCandidatePool(topK, filters)
 
@@ -161,8 +168,10 @@ func vectorSearch(db *sql.DB, query string, topK int, filters *Filters, embedder
 		return nil, err
 	}
 	if len(candidates) == 0 {
+		slog.Info("[vector-debug] no binary candidates", "query", query)
 		return nil, nil
 	}
+	slog.Info("[vector-debug] binary candidates", "count", len(candidates))
 
 	// Stage 2: fetch exact float vectors for the candidates by rowid (point
 	// lookups, no full scan) and rerank with squared L2.
@@ -201,6 +210,15 @@ func vectorSearch(db *sql.DB, query string, topK int, filters *Filters, embedder
 
 	sort.Slice(reranked, func(i, j int) bool { return reranked[i].score < reranked[j].score })
 
+	// TEMP DEBUG: show the closest matches by exact squared-L2 distance.
+	for i := 0; i < min(5, len(reranked)); i++ {
+		slog.Info("[vector-debug] rerank",
+			"rank", i,
+			"docID", reranked[i].docID,
+			"squaredL2", reranked[i].score,
+		)
+	}
+
 	// Stage 3: apply filters and truncate to topK.
 	results := make([]rankedResult, 0, topK)
 	for _, r := range reranked {
@@ -226,6 +244,15 @@ func squaredL2(a, b []float32) float64 {
 		sum += d * d
 	}
 	return sum
+}
+
+// vectorNorm returns the L2 norm of v (TEMPORARY debug helper).
+func vectorNorm(v []float32) float64 {
+	var sum float64
+	for _, x := range v {
+		sum += float64(x) * float64(x)
+	}
+	return math.Sqrt(sum)
 }
 
 // escapeFTSQuery wraps each token in double quotes for safe FTS5 queries.

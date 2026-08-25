@@ -148,3 +148,12 @@ export interface IndexCancelled {
   skipped: number;
   errors: number;
 }
+
+/** Mirrors services.IndexState — snapshot of the active run, returned by
+    getIndexingState() so a freshly-loaded frontend can rebuild the indexing
+    UI. Live updates still arrive as events; this only seeds the initial state. */
+export interface IndexState {
+  active: boolean;
+  all: boolean;
+  collections: Record<string, IndexFileProgress>;
+}

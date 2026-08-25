@@ -528,3 +528,73 @@ func RewriteSourcePaths(d *sql.DB, collectionName, oldPrefix, newPrefix string) 
 	}
 	return result.RowsAffected()
 }
+
+// DeleteSourceData removes one source and everything cascading from it: its
+// documents (which clears FTS via the AFTER DELETE trigger) and its float +
+// binary embeddings. The vec0 tables are not foreign-key linked, so their
+// rows are deleted explicitly, in the same transaction, before the documents
+// they reference disappear. Returns the number of documents removed.
+func DeleteSourceData(conn *sql.DB, sourceID int64) (int64, error) {
+	tx, err := conn.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("begin delete source tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var docs int64
+	if err := tx.QueryRow("SELECT COUNT(*) FROM documents WHERE source_id = ?", sourceID).Scan(&docs); err != nil {
+		return 0, fmt.Errorf("count documents: %w", err)
+	}
+	docSubquery := "SELECT id FROM documents WHERE source_id = ?"
+	for _, table := range []string{"vec_documents_bin", "vec_documents"} {
+		if _, err := tx.Exec(
+			"DELETE FROM "+table+" WHERE document_id IN ("+docSubquery+")", sourceID,
+		); err != nil {
+			return 0, fmt.Errorf("delete %s: %w", table, err)
+		}
+	}
+	if _, err := tx.Exec("DELETE FROM documents WHERE source_id = ?", sourceID); err != nil {
+		return 0, fmt.Errorf("delete documents: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM sources WHERE id = ?", sourceID); err != nil {
+		return 0, fmt.Errorf("delete source: %w", err)
+	}
+	return docs, tx.Commit()
+}
+
+// DeleteCollectionData removes a collection and everything cascading from it:
+// its sources, documents (clearing FTS via the AFTER DELETE trigger), float +
+// binary embeddings, and the collection row itself. The vec0 tables are not
+// foreign-key linked, so their rows are deleted explicitly in the same
+// transaction before the documents they reference disappear. Returns the
+// number of documents removed.
+func DeleteCollectionData(conn *sql.DB, collectionID int64) (int64, error) {
+	tx, err := conn.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("begin delete collection tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var docs int64
+	if err := tx.QueryRow("SELECT COUNT(*) FROM documents WHERE collection_id = ?", collectionID).Scan(&docs); err != nil {
+		return 0, fmt.Errorf("count documents: %w", err)
+	}
+	docSubquery := "SELECT id FROM documents WHERE collection_id = ?"
+	for _, table := range []string{"vec_documents_bin", "vec_documents"} {
+		if _, err := tx.Exec(
+			"DELETE FROM "+table+" WHERE document_id IN ("+docSubquery+")", collectionID,
+		); err != nil {
+			return 0, fmt.Errorf("delete %s: %w", table, err)
+		}
+	}
+	if _, err := tx.Exec("DELETE FROM documents WHERE collection_id = ?", collectionID); err != nil {
+		return 0, fmt.Errorf("delete documents: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM sources WHERE collection_id = ?", collectionID); err != nil {
+		return 0, fmt.Errorf("delete sources: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM collections WHERE id = ?", collectionID); err != nil {
+		return 0, fmt.Errorf("delete collection: %w", err)
+	}
+	return docs, tx.Commit()
+}
