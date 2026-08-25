@@ -55,6 +55,9 @@ ManifestDPIAware true
 !define MUI_UNICON "..\icon.ico"
 # !define MUI_WELCOMEFINISHPAGE_BITMAP "resources\leftimage.bmp" #Include this to add a bitmap on the left side of the Welcome Page. Must be a size of 164x314
 !define MUI_FINISHPAGE_NOAUTOCLOSE # Wait on the INSTFILES page so the user can take a look into the details of the installation steps
+!define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_TEXT "Launch vectile"
+!define MUI_FINISHPAGE_RUN_FUNCTION "LaunchAsUser"
 !define MUI_ABORTWARNING # This will warn the user if they exit from the installer.
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
@@ -82,6 +85,7 @@ ShowInstDetails show # This will always show the installation details.
 
 Function .onInit
    !insertmacro wails.checkArchitecture
+   Call closeRunningApp
 FunctionEnd
 
 Section
@@ -92,6 +96,13 @@ Section
     SetOutPath $INSTDIR
     
     !insertmacro wails.files
+
+    ; The MinGW runtime DLLs the binary needs (committed under build/windows/runtime).
+    File "/oname=libgcc_s_seh-1.dll"  "..\runtime\libgcc_s_seh-1.dll"
+    File "/oname=libgomp-1.dll"       "..\runtime\libgomp-1.dll"
+    File "/oname=libstdc++-6.dll"     "..\runtime\libstdc++-6.dll"
+    File "/oname=libwinpthread-1.dll" "..\runtime\libwinpthread-1.dll"
+    File "/oname=libdl.dll"           "..\runtime\libdl.dll"
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
@@ -117,3 +128,59 @@ Section "uninstall"
 
     !insertmacro wails.deleteUninstaller
 SectionEnd
+
+; ── Runtime helpers ──────────────────────────────────────────────────────────
+; Substring search (returns offset, or "" when absent) — used to detect a
+; running app by image name so a running exe can be closed before overwrite.
+Function StrStr
+  Exch $R0
+  Exch
+  Exch $R1
+  Push $R2
+  Push $R3
+  Push $R4
+  StrLen $R2 $R1
+  StrCpy $R4 0
+  loop:
+    StrCpy $R3 $R0 $R2 $R4
+    StrCmp $R3 $R1 found
+    IntOp $R4 $R4 + 1
+    StrCmp $R4 1000 notfound
+    Goto loop
+  found:
+    StrCpy $R0 $R4
+    Goto done
+  notfound:
+    StrCpy $R0 ""
+  done:
+    Pop $R4
+    Pop $R3
+    Pop $R2
+    Pop $R1
+    Exch $R0
+FunctionEnd
+
+; Close a running app before overwriting the exe. Silent installs kill without
+; asking so /S never hangs on a MessageBox.
+Function closeRunningApp
+  nsExec::ExecToStack 'tasklist /FI "IMAGENAME eq ${PRODUCT_EXECUTABLE}"'
+  Pop $0
+  Pop $1
+  Push $1
+  Push "${PRODUCT_EXECUTABLE}"
+  Call StrStr
+  Pop $0
+  StrCmp $0 "" done
+  IfSilent kill
+  MessageBox MB_YESNO|MB_ICONQUESTION "vectile is running. Close it now so it can be updated?" IDYES kill IDNO done
+  kill:
+    nsExec::ExecToStack 'taskkill /IM "${PRODUCT_EXECUTABLE}" /T'
+    Sleep 1500
+    nsExec::ExecToStack 'taskkill /F /IM "${PRODUCT_EXECUTABLE}" /T'
+  done:
+FunctionEnd
+
+; Launch the finished app de-elevated (never inherit the installer's admin token).
+Function LaunchAsUser
+  Exec '"$WINDIR\explorer.exe" "$INSTDIR\${PRODUCT_EXECUTABLE}"'
+FunctionEnd

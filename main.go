@@ -19,7 +19,14 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+// Version is stamped at release time via `-ldflags "-X main.Version=vX.Y.Z"`.
+// Keep it a var (not a const) so the linker can override it.
+var Version = "v0.1.0"
+
 func main() {
+	// Expose the build-time version to the frontend (AppService.GetVersion).
+	services.Version = Version
+
 	// Resolve the app-data directory first so config, db/, and models/ have a
 	// home. The embedding model is expected to already be in models/.
 	if _, err := appdata.Init(); err != nil {

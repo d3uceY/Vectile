@@ -1,4 +1,5 @@
 import { useAppStore } from "../../lib/store";
+import { HOME_URL, openExternal } from "../../lib/update";
 import { Kbd } from "../ui/primitives";
 
 function formatBytes(n: number): string {
@@ -9,8 +10,8 @@ function formatBytes(n: number): string {
 }
 
 /** Top strip: the model-engine state on the left, library summary on the
-    right. Gives the "everything okay" read at a glance on every view. */
-export function StatusStrip() {
+    right, and the app version on the far right (click → the GitHub repo). */
+export function StatusStrip(props: { version?: string }) {
   const store = useAppStore();
   const st = () => store.status();
   const totals = () => {
@@ -45,6 +46,15 @@ export function StatusStrip() {
           <span class="hidden md:inline">Jump to search</span>
           <Kbd>{navigator.platform.toLowerCase().includes("mac") ? "⌘K" : "Ctrl K"}</Kbd>
         </button>
+        {props.version && (
+          <button
+            class="data hidden shrink-0 cursor-pointer text-faint transition-colors hover:text-leaf-deep md:inline"
+            title="vectile on GitHub"
+            onClick={() => openExternal(HOME_URL)}
+          >
+            {props.version}
+          </button>
+        )}
       </div>
     </header>
   );

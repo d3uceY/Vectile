@@ -36,6 +36,10 @@ export async function getStatus(): Promise<Status> {
   return AppService.GetStatus() as unknown as Status;
 }
 
+export async function getVersion(): Promise<string> {
+  return AppService.GetVersion() as unknown as string;
+}
+
 export async function listCollections(): Promise<Collection[]> {
   return AppService.ListCollections() as unknown as Collection[];
 }

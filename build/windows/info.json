@@ -5,11 +5,11 @@
 	"info": {
 		"0000": {
 			"ProductVersion": "0.1.0",
-			"CompanyName": "My Company",
-			"FileDescription": "A vectile application",
-			"LegalCopyright": "© 2026, My Company",
-			"ProductName": "My Product",
-			"Comments": "This is a comment"
+			"CompanyName": "d3uceY",
+			"FileDescription": "vectile \u2014 your private library",
+			"LegalCopyright": "\u00a9 2026 d3uceY",
+			"ProductName": "vectile",
+			"Comments": "A local, private search across everything you've written, read, and kept."
 		}
 	}
 }

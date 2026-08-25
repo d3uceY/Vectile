@@ -11,6 +11,7 @@
 
 const M = {
   GetStatus: 1831479589,
+  GetVersion: 712846061,
   ListCollections: 1339457758,
   ListSources: 553118937,
   ListDocuments: 1318390221,
@@ -231,6 +232,10 @@ export async function stub(request) {
   switch (methodID) {
     case M.GetStatus:
       return { body: status };
+    case M.GetVersion:
+      // The dev-stub middleware sends string bodies raw, so JSON-encode the
+      // value — the runtime's res.json() needs `"v0.1.0"` (quoted).
+      return { body: JSON.stringify("v0.1.0") };
     case M.ListCollections:
       return { body: collections };
     case M.ListSources: {

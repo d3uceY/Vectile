@@ -8,6 +8,29 @@ Inspired by Sebastian Hutter’s local-rag. No Ollama, no API keys, no model dow
   <img src="docs/vectile-banner.svg" alt="vectile: your private library" width="100%">
 </p>
 
+## Download
+
+![Latest release](https://img.shields.io/github/v/release/d3uceY/vectile?style=for-the-badge&label=Release&logo=github&color=%23e8442e)
+![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
+
+**Click your platform to download the latest version:**
+
+[![Windows](https://img.shields.io/github/v/release/d3uceY/vectile?style=for-the-badge&logo=windows&label=Windows&color=0078D4&logoColor=white)](https://github.com/d3uceY/vectile/releases/latest/download/vectile-windows-amd64-installer.exe) - ⚠️ SmartScreen will block it · [how to fix](#first-run-notes)<br>
+[![Windows portable](https://img.shields.io/badge/Windows%20portable-download-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/d3uceY/vectile/releases/latest/download/vectile-windows-amd64.exe)
+
+> Windows 10/11 · macOS and Linux builds are coming soon · **app is not code-signed, [see first-run notes below](#first-run-notes)**
+
+### First-Run Notes
+
+vectile is not code-signed, so Windows may warn you on first launch. The app is safe and fully open source — you can read every line of code here.
+
+**Windows - SmartScreen**
+
+1. Click **More info**
+2. Click **Run anyway**
+
+Or right-click the `.exe` -> **Properties** -> check **Unblock** -> **Apply**.
+
 ## Screenshots
 
 Screenshots show sample data.
