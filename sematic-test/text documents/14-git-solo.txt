@@ -1,0 +1,1 @@
+Even working alone I keep everything in git. Each feature gets a branch off main, and I commit in small, describable steps rather than one giant blob. The history is my documentation: months later I can read why a change was made. Tags mark releases, and a clean tree before bed means nothing is half-done. It is the cheapest safety net in software.

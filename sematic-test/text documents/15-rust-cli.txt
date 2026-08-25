@@ -1,0 +1,1 @@
+I have been writing command-line tools in Rust. The language makes it hard to write memory-unsafe code, and the compiler catches mistakes early. Cargo handles dependencies and builds, and Clap parses arguments cleanly. Most tools end up as a single small binary with no runtime. The tradeoff is fighting the borrow checker, but the resulting programs are fast and dependable.
