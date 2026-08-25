@@ -2,7 +2,7 @@
 
 A fully local, privacy-preserving RAG (Retrieval Augmented Generation) system for Windows, macOS, and Linux. It indexes personal knowledge from several sources into a single SQLite database with hybrid vector + full-text search, then lets you find things by meaning, not just by exact words, from a fast keyboard-first desktop app. Everything runs on your machine. No server, no cloud, no network calls.
 
-Inspired by [local-rag](https://github.com/sebastianhutter/local-rag). No Ollama, no API keys, no model downloads. The embedding model is a `.gguf` file you import once; after that it runs in-process.
+Inspired by Sebastian Hutter’s local-rag. No Ollama, no API keys, no model downloads. The embedding model is a `.gguf` file you import once; after that it runs in-process.
 
 <p align="center">
   <img src="docs/vectile-banner.svg" alt="vectile: your private library" width="100%">
