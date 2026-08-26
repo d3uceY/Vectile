@@ -135,7 +135,7 @@ export interface IndexComplete {
   messages: string[];
 }
 
-/** Mirrors services.IndexFileProgress — emitted per indexed file. */
+/** Mirrors services.IndexFileProgress; emitted per indexed file. */
 export interface IndexFileProgress {
   collection: string;
   file: string;
@@ -143,7 +143,7 @@ export interface IndexFileProgress {
   total: number;
 }
 
-/** Mirrors services.IndexCancelled — emitted when a run is cancelled. */
+/** Mirrors services.IndexCancelled; emitted when a run is cancelled. */
 export interface IndexCancelled {
   collection: string;
   indexed: number;
@@ -151,7 +151,7 @@ export interface IndexCancelled {
   errors: number;
 }
 
-/** Mirrors services.IndexState — snapshot of the active run, returned by
+/** Mirrors services.IndexState: snapshot of the active run, returned by
     getIndexingState() so a freshly-loaded frontend can rebuild the indexing
     UI. Live updates still arrive as events; this only seeds the initial state. */
 export interface IndexState {
@@ -160,7 +160,7 @@ export interface IndexState {
   collections: Record<string, IndexFileProgress>;
 }
 
-/** Mirrors db.Model — one installed embedding model. */
+/** Mirrors db.Model: one installed embedding model. */
 export interface ModelInfo {
   id: number;
   name: string;
@@ -173,7 +173,7 @@ export interface ModelInfo {
   created: string;
 }
 
-/** Mirrors services.SetActiveResult — setActiveModel() outcome. */
+/** Mirrors services.SetActiveResult: setActiveModel() outcome. */
 export interface SetActiveResult {
   needsRebuild: boolean;
   model: ModelInfo;

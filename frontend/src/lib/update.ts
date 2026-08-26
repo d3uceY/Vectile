@@ -10,7 +10,7 @@ export const HOME_URL = `https://github.com/${REPO}`;
 export const DOWNLOAD_URL = `https://github.com/${REPO}#download`;
 
 /** True when running inside the Wails desktop webview. The browser dev-stub
-    also sets window._wails, so require a non-localhost origin too — that keeps
+    also sets window._wails, so require a non-localhost origin too; that keeps
     the update check (and its dialog) out of the screenshot pipeline. */
 export const isDesktop =
   typeof window !== "undefined" &&
@@ -24,7 +24,7 @@ export function openExternal(url: string): void {
 }
 
 /** Parses "v1.2.3" → [1,2,3]. Returns null for anything with a suffix
-    (beta, rc, alpha, ...) — only clean stable releases count. */
+    (beta, rc, alpha, ...); only clean stable releases count. */
 export function parseVersion(v: string): [number, number, number] | null {
   const m = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(v.trim());
   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;

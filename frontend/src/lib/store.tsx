@@ -48,7 +48,7 @@ export function createAppStore() {
   const [pendingLeave, setPendingLeave] = createSignal<ViewId | null>(null);
 
   // The Settings form draft + dirty flag. The draft lives HERE (not in the
-  // Settings view) so unsaved edits survive switching views — leaving keeps
+  // Settings view) so unsaved edits survive switching views; leaving keeps
   // them in memory, and the leave guard above refuses to navigate away while
   // dirty until the user saves, keeps editing, or discards.
   const [settingsDraft, setSettingsDraftRaw] = createSignal<AppConfig | null>(null);
@@ -67,7 +67,7 @@ export function createAppStore() {
   };
   const replaceSettingsDraft = (v: AppConfig | null) => setSettingsDraftRaw(v);
 
-  // Logical CPUs available — the ceiling for the model's CPU-threads slider.
+  // Logical CPUs available: the ceiling for the model's CPU-threads slider.
   const [cpuCount, setCpuCount] = createSignal(0);
 
   // Navigate to a view. While the settings draft is dirty, leaving Settings is
@@ -120,11 +120,11 @@ export function createAppStore() {
   const [indexing, setIndexing] = createSignal(false);
   const [indexProgress, setIndexProgress] = createSignal<IndexProgress | null>(null);
   const [indexLast, setIndexLast] = createSignal<IndexComplete | null>(null);
-  // Per-collection progress, keyed by collection name — drives the inline
+  // Per-collection progress, keyed by collection name; drives the inline
   // loader on the dir currently being indexed.
   const [indexByCollection, setIndexByCollection] = createSignal<Record<string, IndexFileProgress>>({});
   // True while an "Index all" run is in flight, so per-collection complete
-  // events don't each reload the library — the backend's single
+  // events don't each reload the library; the backend's single
   // indexing:all-done event reloads it once at the end instead.
   const [indexAllActive, setIndexAllActive] = createSignal(false);
 
@@ -157,7 +157,7 @@ export function createAppStore() {
     setSearchState("searching");
     try {
       const res = await api.search(q, f);
-      if (seq !== searchSeq) return; // superseded by a newer query — drop it
+      if (seq !== searchSeq) return; // superseded by a newer query; drop it
       setResults(res);
     } catch (err) {
       if (seq !== searchSeq) return;
@@ -285,7 +285,7 @@ export function createAppStore() {
   };
 
   // Switch the active model. When the backend says switching would change the
-  // embedding dimension (needsRebuild) it does NOT apply it yet — the caller
+  // embedding dimension (needsRebuild) it does NOT apply it yet; the caller
   // shows a confirm dialog, then calls setActiveModel(path, true).
   const setActiveModel = async (path: string, force = false) => {
     const res = await api.setActiveModel(path, force);
@@ -327,7 +327,7 @@ export function createAppStore() {
 
   // Index view actions. The backend reports whether a run actually started;
   // "indexing" is only set on a confirmed start so a rejected request (another
-  // run in progress) never leaves the buttons permanently disabled — the mute
+  // run in progress) never leaves the buttons permanently disabled; the mute
   // bug where pressing Index did nothing.
 
   // Seeded loader state shown the instant a run is confirmed, before the
@@ -340,8 +340,8 @@ export function createAppStore() {
     total: 0,
   });
 
-  // The collection names an "Index all" run will touch — enabled + has source
-  // paths — mirroring backend services.configuredCollections.
+  // The collection names an "Index all" run will touch: enabled + has source
+  // paths, mirroring backend services.configuredCollections.
   const configuredNames = (): string[] => {
     const cfg = config();
     if (!cfg) return [];
@@ -372,7 +372,7 @@ export function createAppStore() {
       pushToast("Another index is already running", "neutral");
       return;
     }
-    // Loader shows immediately — before the first indexing:file event.
+    // Loader shows immediately, before the first indexing:file event.
     setIndexByCollection((m) => ({ ...m, [name]: preparingProgress(name) }));
     setIndexing(true);
   };
@@ -492,7 +492,7 @@ export function createAppStore() {
   });
   const offAllDone = Events.On("indexing:all-done", () => {
     setIndexAllActive(false);
-    setIndexing(false); // the whole all-run is done — clear the in-progress state
+    setIndexing(false); // the whole all-run is done; clear the in-progress state
     void loadLibrary(); // browse picks up freshly indexed files once, not per collection
   });
   const offCancelled = Events.On("indexing:cancelled", (ev) => {
@@ -521,7 +521,7 @@ export function createAppStore() {
   // A freshly loaded frontend has no idea the backend is mid-index (events
   // emitted before it subscribed are lost), so on mount we ask the backend for
   // the current run and rebuild the indexing state. Live events still drive
-  // every update after that — this only seeds the initial state on (re)load.
+  // every update after that; this only seeds the initial state on (re)load.
   const hydrateIndexing = async () => {
     try {
       const st = await api.getIndexingState();
@@ -531,7 +531,7 @@ export function createAppStore() {
         return;
       }
       const s = st as IndexState;
-      if (!s.active) return; // nothing running — keep the default idle state
+      if (!s.active) return; // nothing running; keep the default idle state
       setIndexing(true);
       setIndexAllActive(Boolean(s.all));
       const map: Record<string, IndexFileProgress> = {};

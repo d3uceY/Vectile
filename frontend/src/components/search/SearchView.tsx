@@ -205,7 +205,7 @@ export function SearchView() {
         </Show>
       </div>
 
-      {/* Results area — the view's own scroll region */}
+      {/* Results area: the view's own scroll region */}
       <div class="scroll-quiet relative mt-6 min-h-0 flex-1 overflow-y-auto">
         <Show
           when={store.searchState() === "idle"}
@@ -293,7 +293,7 @@ function ResultList() {
         <EmptyState
           icon={<SearchIcon size={20} />}
           title="Nothing matched"
-          note="Try fewer words, or drop a filter. Exact phrases are quoted, everything else is fuzzy by design."
+          note="Try fewer words, or drop a filter. Exact phrases are quoted; everything else is fuzzy."
         />
       }
     >

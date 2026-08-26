@@ -104,7 +104,7 @@ function NumField(props: {
 }
 
 /* Decimal blend controls (e.g. the search weights) are a draggable progress
-   bar from 0 to 1 instead of a number box — the .slider class paints the
+   bar from 0 to 1 instead of a number box. The .slider class paints the
    filled portion from the --fill custom property, and the tiny readout keeps
    the exact value visible since a 0.05 step is hard to eyeball. */
 function RangeField(props: {
@@ -184,7 +184,7 @@ function PathList(props: {
     <div class="flex flex-col gap-2">
       {props.values.length === 0 ? (
         <p class="rounded-control border border-dashed border-line bg-surface/40 px-3 py-2.5 text-[13px] leading-5 text-faint">
-          {props.empty ?? "Nothing here yet — add a path below."}
+          {props.empty ?? "Nothing here yet. Add a path below."}
         </p>
       ) : (
         <ul class="divide-y divide-line overflow-hidden rounded-control border border-line bg-paper">
@@ -255,7 +255,7 @@ function ChipList(props: {
   return (
     <div class="flex flex-col gap-2">
       {props.values.length === 0 ? (
-        <p class="text-[12.5px] leading-4 text-faint">None — every folder inside a vault is indexed.</p>
+        <p class="text-[12.5px] leading-4 text-faint">None. Every folder inside a vault is indexed.</p>
       ) : (
         <ul class="flex flex-wrap gap-1.5">
           <For each={props.values}>
@@ -406,7 +406,7 @@ function GroupList(props: {
     <div class="flex flex-col gap-2">
       {entries().length === 0 ? (
         <p class="rounded-control border border-dashed border-line bg-surface/40 px-3 py-2.5 text-[13px] leading-5 text-faint">
-          {props.empty ?? "No groups yet — create one below, then add its folders."}
+          {props.empty ?? "No groups yet. Create one below, then add its folders."}
         </p>
       ) : (
         <ul class="divide-y divide-line overflow-hidden rounded-control border border-line bg-paper">
@@ -543,7 +543,7 @@ export function SettingsView() {
   const store = useAppStore();
 
   // The draft lives in the store (not here) so unsaved edits survive leaving
-  // the page — they're kept in memory, and the leave dialog below decides
+  // the page. They're kept in memory, and the leave dialog below decides
   // whether they get saved or dropped.
   const draft = (): AppConfig | null => store.settingsDraft();
 
@@ -642,7 +642,7 @@ export function SettingsView() {
     if (m) setSelModel(m.path);
   });
 
-  // Total logical cores — the ceiling for the CPU-threads slider. Falls back to
+  // Total logical cores: the ceiling for the CPU-threads slider. Falls back to
   // 64 until the backend answers (slow start / dev stub).
   const cpuCount = (): number => (store.cpuCount() > 0 ? store.cpuCount() : 64);
 
@@ -671,9 +671,9 @@ export function SettingsView() {
     try {
       const r = await store.setActiveModel(path);
       if (r.needsRebuild) setConfirmDim({ path, name: r.name });
-      else setSelModel(activeModel()?.path ?? ""); // applied — resync from the store
+      else setSelModel(activeModel()?.path ?? ""); // applied; resync from the store
     } catch {
-      setSelModel(activeModel()?.path ?? ""); // rejected — revert the dropdown
+      setSelModel(activeModel()?.path ?? ""); // rejected; revert the dropdown
     }
   };
 
@@ -685,7 +685,7 @@ export function SettingsView() {
       await store.setActiveModel(c.path, true);
       setConfirmDim(null);
     } catch {
-      setSelModel(activeModel()?.path ?? ""); // failed — revert the dropdown
+      setSelModel(activeModel()?.path ?? ""); // failed; revert the dropdown
     } finally {
       setConfirmBusy(false);
     }
@@ -732,7 +732,7 @@ export function SettingsView() {
         <div class="scroll-quiet -mr-2 flex-1 overflow-y-auto pr-2">
           <Section
             title="Model"
-            note="The embedding engine runs in-process. Import a .gguf below, or drop one into the models folder of the vectile data directory — it shows up here automatically."
+            note="The embedding engine runs in-process. Import a .gguf below, or drop one into the models folder of the vectile data directory. It shows up here automatically."
           >
             <div class="flex flex-wrap items-center gap-3">
               <StatusPill state={store.modelState()} name={store.modelName()} />
@@ -772,7 +772,7 @@ export function SettingsView() {
                     label="Context window (tokens)"
                     value={modelCtx()}
                     onChange={setModelCtx}
-                    hint="How many tokens the model can read at once. 0 = the model's native maximum. This is filled in from the .gguf metadata when the model is registered. Raise it for long chunks, lower it to save memory."
+                    hint="How many tokens the model can read at once. 0 = the model's native maximum. Raise it for long chunks, lower it to save memory."
                     min={0}
                     max={8192}
                     step={256}
@@ -790,7 +790,7 @@ export function SettingsView() {
                     label="CPU threads"
                     value={modelThreads()}
                     onChange={setModelThreads}
-                    hint={`0 = auto, which uses all ${cpuCount()} logical cores. Drag to reserve some for the rest of the system — lower it if indexing starves other apps.`}
+                    hint={`0 = auto, which uses all ${cpuCount()} logical cores. Drag to reserve some for the rest of the system. Lower it if indexing starves other apps.`}
                     min={0}
                     max={cpuCount()}
                     step={1}
@@ -848,7 +848,7 @@ export function SettingsView() {
                   <p>
                     <span class="font-medium text-ink">{confirmDim()?.name}</span> uses a
                     different embedding dimension than the current model. Every indexed
-                    collection will need to be re-indexed before meaning-search works again,
+                    collection will need to be re-indexed before meaning search works again,
                     and all existing embeddings will be cleared.
                   </p>
                   <p class="mt-2">Switch anyway?</p>
@@ -864,12 +864,12 @@ export function SettingsView() {
             />
           </Section>
 
-          <Section title="Chunking" note="Word-based windows. Smaller chunks match tighter; overlap keeps straddling sentences intact.">
+          <Section title="Chunking" note="Word-based windows. Smaller chunks match more precisely; overlap keeps split sentences intact.">
             <NumField
               label="Chunk size (words)"
               value={draft()!.chunk_size_tokens}
               onChange={(n) => setNumber("chunk_size_tokens", n)}
-              hint="How many words each indexed slice of a document holds. Search matches against these slices, not whole files, so this sets how finely results are cut. Small chunks answer narrowly, big ones carry more surrounding context. 500 is a safe starting point."
+              hint="How many words each indexed slice holds. Search matches slices, not whole files, so this sets how finely results are cut. Smaller chunks match more precisely; bigger ones carry more context. 500 is a safe start."
               min={STATIC_BOUNDS.chunk_size_tokens.min}
               max={STATIC_BOUNDS.chunk_size_tokens.max}
               step={STATIC_BOUNDS.chunk_size_tokens.step}
@@ -878,7 +878,7 @@ export function SettingsView() {
               label="Chunk overlap (words)"
               value={draft()!.chunk_overlap_tokens}
               onChange={(n) => setNumber("chunk_overlap_tokens", n)}
-              hint="How many words repeat from one slice into the next. The repeat keeps sentences and ideas that straddle a cut from being split in half, so they still search whole. Too little overlap and things slip through; too much and the same text gets stored twice. 50 is the usual starting point."
+              hint="How many words repeat from one slice into the next, so sentences that straddle a cut stay searchable whole. Too little overlap and text slips through; too much and it gets stored twice. 50 is the usual start."
               min={STATIC_BOUNDS.chunk_overlap_tokens.min}
               max={Math.max(STATIC_BOUNDS.chunk_overlap_tokens.min, draft()!.chunk_size_tokens - 1)}
               step={STATIC_BOUNDS.chunk_overlap_tokens.step}
@@ -890,7 +890,7 @@ export function SettingsView() {
               label="Top results"
               value={draft()!.search_defaults.top_k}
               onChange={(n) => setSearch("top_k", n)}
-              hint="How many matches a search returns by default. Raise it to see more of the pile, lower it to keep the list short. You can still ask for a different number on any individual search."
+              hint="How many matches a search returns by default. Raise it for a longer list, lower it for a shorter one. Set a different number per search under Filters."
               min={STATIC_BOUNDS.top_k.min}
               max={STATIC_BOUNDS.top_k.max}
               step={STATIC_BOUNDS.top_k.step}
@@ -899,7 +899,7 @@ export function SettingsView() {
               label="RRF constant (k)"
               value={draft()!.search_defaults.rrf_k}
               onChange={(n) => setSearch("rrf_k", n)}
-              hint="A smoothing value in the math that merges the two search lists. Bigger k flattens the gap between high and low ranked matches, so entries further down the list still get a fair shot. 60 is the standard value for this kind of search."
+              hint="A smoothing value in the math that merges the two search lists. Bigger k flattens the gap between high- and low-ranked matches, so entries further down still get a fair shot. 60 is the usual value."
               min={STATIC_BOUNDS.rrf_k.min}
               max={STATIC_BOUNDS.rrf_k.max}
               step={STATIC_BOUNDS.rrf_k.step}
@@ -928,14 +928,14 @@ export function SettingsView() {
             <div class="space-y-7">
               <SourceGroup
                 title="Documents"
-                note="Notes and books you read — searched by meaning as well as keyword."
+                note="Notes and books you read, searchable by meaning as well as keyword."
               >
                 <div class="grid items-start gap-x-8 gap-y-6 md:grid-cols-2">
                   <div class="space-y-3">
                     <SourceHeading
                       icon={<FileIcon size={15} />}
                       title="Obsidian vaults"
-                      hint="Point at an Obsidian vault and every markdown note in it gets indexed, subfolders included. Once it's in, you can search your notes by meaning as well as by keyword. Use the exclude list below to keep noisy folders out."
+                      hint="Point at an Obsidian vault and every markdown note in it gets indexed, subfolders included. Use the exclude list below to keep noisy folders out."
                       count={draft()!.obsidian_vaults.length}
                       unit="path"
                     />
@@ -945,13 +945,13 @@ export function SettingsView() {
                       onRemove={(v) => removePath("obsidian_vaults", v)}
                       title="Choose an Obsidian vault"
                       placeholder="path to a vault…"
-                      empty="No vaults yet — add one and its notes become searchable."
+                      empty="No vaults yet. Add one and its notes become searchable."
                     />
                     <div class="space-y-2.5 rounded-control border border-line bg-surface/40 p-3">
                       <SourceHeading
                         icon={<SlashIcon size={14} />}
                         title="Excluded folders"
-                        hint="Folders listed here are skipped when vaults are indexed. Handy for hiding attachments, templates, .trash, or anything else you don't want showing up in search results."
+                        hint="Folders listed here are skipped when vaults are indexed. Handy for hiding attachments, templates, .trash, or anything else you don't want in search results."
                         count={draft()!.obsidian_exclude_folders.length}
                         unit="folder"
                       />
@@ -967,7 +967,7 @@ export function SettingsView() {
                     <SourceHeading
                       icon={<LibraryIcon size={15} />}
                       title="Calibre libraries"
-                      hint="Point at a Calibre library and the app reads your book metadata and indexes the text of the formats it understands, so your books become searchable without opening them."
+                      hint="Point at a Calibre library. The app reads the metadata and indexes the text of the formats it understands, so your books are searchable without opening them."
                       count={draft()!.calibre_libraries.length}
                       unit="path"
                     />
@@ -977,7 +977,7 @@ export function SettingsView() {
                       onRemove={(v) => removePath("calibre_libraries", v)}
                       title="Choose a Calibre library"
                       placeholder="path to a library…"
-                      empty="No libraries yet — add a Calibre library to search its books."
+                      empty="No libraries yet. Add a Calibre library to search its books."
                     />
                   </div>
                 </div>
@@ -992,7 +992,7 @@ export function SettingsView() {
                     <SourceHeading
                       icon={<FolderOpenIcon size={15} />}
                       title="Project folders"
-                      hint="A group of folders that get indexed together as one collection. Each group you create becomes its own searchable set, so you can keep client work separate from personal files. Folders are walked recursively."
+                      hint="A group of folders indexed together as one collection. Each group becomes its own searchable set, so you can keep client work separate from personal files."
                       count={Object.keys(draft()!.projects).length}
                       unit="group"
                     />
@@ -1003,14 +1003,14 @@ export function SettingsView() {
                       onAddGroup={(n) => addGroup("projects", n)}
                       onRemoveGroup={(n) => removeGroup("projects", n)}
                       title="Choose a project folder"
-                      empty="No project groups yet — create one, then add its folders."
+                      empty="No project groups yet. Create one, then add its folders."
                     />
                   </div>
                   <div class="space-y-3">
                     <SourceHeading
                       icon={<CodeIcon size={15} />}
                       title="Code repositories"
-                      hint="Git repositories to index as code. The app indexes the current file tree and the commit history (how far back is set below), including any nested repos it finds, and makes the code itself searchable by meaning."
+                      hint="Git repositories to index as code. Indexes the current file tree and the commit history (how far back is set below), nested repos included."
                       count={Object.keys(draft()!.repositories).length}
                       unit="group"
                     />
@@ -1021,7 +1021,7 @@ export function SettingsView() {
                       onAddGroup={(n) => addGroup("repositories", n)}
                       onRemoveGroup={(n) => removeGroup("repositories", n)}
                       title="Choose a code repository"
-                      empty="No repository groups yet — create one, then add its repos."
+                      empty="No repository groups yet. Create one, then add its repos."
                     />
                   </div>
                 </div>
@@ -1044,7 +1044,7 @@ export function SettingsView() {
               onChange={(v) => setGui({ auto_reindex: v })}
               label="Auto-reindex"
               description="Re-index all enabled collections on a timer."
-              hint="Re-index all your collections on a timer in the background, so files you add or edit show up in search without you running anything manually. Off by default, since a full pass can use your CPU and model for a while. Turn it on if you're constantly adding files."
+              hint="Re-index all your collections on a timer, so files you add or edit show up in search without running anything manually. Off by default: a full pass uses your CPU and model for a while. Turn it on if you add files often."
             />
             <Show when={draft()!.gui.auto_reindex}>
               <NumField
@@ -1062,7 +1062,7 @@ export function SettingsView() {
               onChange={(v) => setGui({ start_on_login: v })}
               label="Start on login"
               description="Launch vectile when you sign in."
-              hint="Launch vectile automatically when you sign in to your computer, so it's already open and indexing before you need it."
+              hint="Launch vectile when you sign in, so it's already open and indexing before you need it."
             />
           </Section>
         </div>
@@ -1078,7 +1078,7 @@ export function SettingsView() {
           <div class="sheet w-[24rem] p-5 shadow-pop" onClick={(e) => e.stopPropagation()}>
             <h3 class="title text-[15px] tracking-[-0.01em] text-ink">Save your changes before leaving?</h3>
             <p class="read mt-2 text-[13.5px] leading-5 text-muted">
-              You've edited settings that aren't saved yet. If you leave now, your changes will be lost.
+              You have unsaved changes. If you leave now, they'll be lost.
             </p>
             <div class="mt-5 flex flex-col gap-2">
               <Button autofocus onClick={() => void saveAndLeave()}>

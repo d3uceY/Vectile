@@ -125,7 +125,7 @@ export function IndexView() {
                         disabled={store.indexing()}
                         onClick={() => setDeleteConfirm(item.name)}
                         aria-label={`Delete collection ${item.name}`}
-                        title="Delete this collection — indexed data and its Settings entry"
+                        title="Delete this collection and its Settings entry"
                       >
                         <TrashIcon size={14} />
                         Delete
@@ -201,8 +201,8 @@ export function IndexView() {
                 </span>{" "}
               </>
             )}{" "}
-            from the index, and removes it from Settings (its whole group of source paths). The
-            files on disk are untouched — re-add the source in Settings to index it again.
+            from the index and from Settings (its whole group of source paths). Files on disk are
+            untouched. Re-add the source in Settings to index it again.
           </p>
         }
       />

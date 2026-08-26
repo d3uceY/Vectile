@@ -30,7 +30,7 @@ export function AppShell() {
   });
 
   // Version + update check: once per launch, desktop only, stable releases
-  // only (a beta/rc latest release never triggers the dialog — see isNewer).
+  // only (a beta/rc latest release never triggers the dialog; see isNewer).
   onMount(() => {
     void (async () => {
       const v = await api.getVersion().catch(() => null);

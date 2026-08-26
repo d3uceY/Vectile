@@ -6,9 +6,10 @@ import { BrowseIcon } from "../ui/icons";
 import { GridPattern } from "../ui/patterns";
 
 // Tree node ids must be unique across the whole tree, but collection/source/
-// document ids each autoincrement from 1 — a source folder "1" used to collide
-// with the collection folder "1", so collapsing one collapsed its same-id
-// parent too. Prefix each namespace; the prefix is internal to the tree only.
+// document ids each autoincrement from 1, so a source folder "1" used to
+// collide with the collection folder "1" and collapsing one collapsed its
+// same-id parent too. Prefix each namespace; the prefix is internal to the
+// tree only.
 const cid = (n: number) => `c-${n}`; // collection folder
 const sid = (n: number) => `s-${n}`; // source folder
 const did = (n: number) => `d-${n}`; // document (file)

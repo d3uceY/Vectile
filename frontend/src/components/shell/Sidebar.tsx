@@ -10,12 +10,10 @@ import {
 } from "../ui/icons";
 
 /* ------------------------------------------------------------------
-   Sidebar — the notebook's index tabs.
-   The active view is a filing-cabinet tab pulled out over the spine:
-   a mint square-cornered tab that pokes 5px past the hairline border.
-   The footer holds the engine's colophon: a cardstock plate carrying
-   the state, the model name, and a serif-italic local-first note.
-   No pills, no badges — the notebook's own vocabulary.
+   Sidebar: the notebook's index tabs. The active view is a filing-
+   cabinet tab pulled out over the spine, a mint square-cornered tab
+   that pokes 5px past the hairline border. The footer holds a cardstock
+   plate with the model state, the model name, and a local-first note.
    ------------------------------------------------------------------ */
 
 const NAV: { id: ViewId; label: string; icon: (p: { size?: number }) => JSX.Element }[] = [
@@ -32,7 +30,7 @@ const modelCopy: Record<ModelState, { label: string; dot: string; text: string }
   failed: { label: "failed", dot: "bg-danger", text: "text-danger" },
 };
 
-/** The engine's colophon — a cardstock plate in the sidebar footer. */
+/** The engine's colophon: a cardstock plate in the sidebar footer. */
 function ModelPlate(props: { state: ModelState; name?: string; compact?: boolean }) {
   const m = () => modelCopy[props.state];
   const tip = () => (props.name ? `${m().label} · ${props.name}` : m().label);

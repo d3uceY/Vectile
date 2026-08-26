@@ -13,7 +13,7 @@ function Highlighted(props: { text: string; terms: string[] }) {
     // split() puts matched terms at odd indices but also injects empty
     // strings (before the first match, after the last, between adjacent
     // matches). Compute the hit flag from the original index FIRST, then
-    // drop the empties — otherwise filtering first shifts every index by
+    // drop the empties; otherwise filtering first shifts every index by
     // one and the highlight lands on the wrong text.
     return props.text
       .split(re)
@@ -66,7 +66,7 @@ export function ResultCard(props: { result: SearchResult; terms: string[] }) {
       role="button"
       tabindex={0}
       aria-expanded={open()}
-      aria-label={`${r().title} — expand to read the full passage`}
+      aria-label={`${r().title}, expand to read the full passage`}
     >
       <div class="flex items-start justify-between gap-4">
         <h3 class="title text-[15px] leading-6 tracking-[-0.005em] text-ink">

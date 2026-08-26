@@ -117,7 +117,7 @@ export function LibraryView() {
                             {c.needsReindex && (
                               <span
                                 class="shrink-0 rounded-control bg-highlighter/60 px-1.5 py-0.5 text-[11px] font-medium text-ink"
-                                title="This collection has no embeddings — re-index it after switching to a model with a different embedding dimension."
+                                title="No embeddings yet. Re-index after switching to a model with a different embedding dimension."
                               >
                                 needs reindex
                               </span>
@@ -213,9 +213,9 @@ export function LibraryView() {
               <p>
                 Removes <span class="font-medium text-ink">“{t.name}”</span> and its{" "}
                 <span class="font-medium text-ink">{t.chunks.toLocaleString()} chunks</span> from
-                the index, and removes it from Settings
+                the index and from Settings
                 {t.type === "system" ? " (all its vault/library paths)." : " (the whole group)."}{" "}
-                The files on disk are untouched — re-add the source in Settings to index it again.
+                Files on disk are untouched. Re-add the source in Settings to index it again.
               </p>
             );
           }

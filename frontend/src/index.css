@@ -1,5 +1,5 @@
 /* ============================================================
-   vectile — design tokens + base styles
+   vectile: design tokens + base styles
    World: "field notebook / index-card library"
    Bright paper ground, graph-paper dot + grid, one friendly
    green accent, mono data labels, serif-italic margin notes.
@@ -52,7 +52,7 @@
   --radius-card: 14px;
   --radius-control: 10px;
 
-  /* Shadows — offset + blur only, no zero-offset halos */
+  /* Shadows: offset + blur only, no zero-offset halos */
   --shadow-card: 0 1px 2px rgb(27 34 38 / 0.05), 0 14px 30px -18px rgb(27 34 38 / 0.16);
   --shadow-pop: 0 2px 6px rgb(27 34 38 / 0.06), 0 22px 44px -22px rgb(27 34 38 / 0.22);
 
@@ -132,14 +132,14 @@
     letter-spacing: 0.005em;
   }
 
-  /* Display voice: serif for titles — the library index-card look. Pair with
+  /* Display voice: serif for titles, the library index-card look. Pair with
      a size/color class; this swaps the typeface and weight only. */
   .title {
     font-family: var(--font-serif);
     font-weight: 400;
   }
 
-  /* Reading voice: serif for passages, snippets, and document chunks — the
+  /* Reading voice: serif for passages, snippets, and document chunks: the
      books-on-paper feel of a library. Optical sizing keeps small text open. */
   .read {
     font-family: var(--font-serif);

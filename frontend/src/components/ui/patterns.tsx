@@ -13,7 +13,7 @@ type DotPatternProps = {
   glow?: boolean;
 };
 
-/** A fine dot grid — the "graph paper" ground. Ported from MagicUI
+/** A fine dot grid: the "graph paper" ground. Ported from MagicUI
     (DotPattern) to Solid + Tailwind. Color follows `text-*`. */
 export function DotPattern(props: DotPatternProps) {
   const id = uid("dots");
@@ -56,7 +56,7 @@ type GridPatternProps = {
   squares?: boolean;
 };
 
-/** A square grid — the "blueprint" surface. Ported from MagicUI
+/** A square grid: the "blueprint" surface. Ported from MagicUI
     (GridPattern) to Solid + Tailwind. Color follows `text-*`. */
 export function GridPattern(props: GridPatternProps) {
   const id = uid("grid");

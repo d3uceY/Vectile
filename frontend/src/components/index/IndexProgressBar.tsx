@@ -6,7 +6,7 @@ import { Show } from "solid-js";
  * The bar is driven by real per-file events (current/total) but shaped to feel
  * like a "pushing" loader:
  *  - the fill caps at 96%, so it looks like it's about to finish and holds
- *    there while the backend wraps up the last batch — the user waits instead
+ *    there while the backend wraps up the last batch; the user waits instead
  *    of expecting an instant 100%;
  *  - the width transition eases from slow to fast (start → accelerate);
  *  - a leaf-green shine sweeps across the fill and a soft glow pulses
@@ -26,7 +26,7 @@ export function IndexProgressBar(props: {
   };
 
   // total <= 0 means the run just started and hasn't counted its first file
-  // yet — show an indeterminate "Preparing…" state rather than a stalled 0/0.
+  // yet, so show an indeterminate "Preparing…" state rather than a stalled 0/0.
   const preparing = () => props.total <= 0;
 
   return (
