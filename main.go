@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"vectile/backend/appdata"
 	"vectile/backend/config"
@@ -62,7 +63,9 @@ func main() {
 			Handler: application.AssetFileServerFS(assets),
 		},
 		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
+			// The app lives in the system tray; closing the window hides it
+			// (see the WindowClosing hook below) instead of terminating.
+			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
 	})
 	core.App = app
@@ -73,7 +76,7 @@ func main() {
 		}
 	}
 
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "vectile",
 		Width:     1180,
 		Height:    760,
@@ -86,6 +89,13 @@ func main() {
 		},
 		BackgroundColour: application.NewRGB(251, 252, 255),
 		URL:              "/",
+	})
+
+	// Closing the window hides it instead of quitting — the app keeps running
+	// in the system tray and is re-opened from the tray menu or tray click.
+	win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		e.Cancel()
+		win.Hide()
 	})
 
 	// Open the database and apply the schema once the app is wired up.
@@ -105,9 +115,17 @@ func main() {
 	// loop reads core.Cfg live so settings changes apply without a restart.
 	go autoReindexLoop(core)
 
+	// System tray: status line, Index submenu, cancel, and Quit. Must be
+	// created before app.Run() — Wails defers the actual tray init until the
+	// event loop starts, but New() has to happen first.
+	tray := newTray(app, core, win)
+	tray.start()
+
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+
+	tray.stop()
 
 	parser.ClosePDFPool()
 	core.Embedder.Close()
