@@ -715,21 +715,10 @@ export function SettingsView() {
 
   return (
     <div class="relative flex h-full flex-col">
-      <ViewHeading title="Settings" note="Model, chunking, search, and sources. Everything stays on this machine.">
-        <Button onClick={() => void save()}>Save settings</Button>
-        <Show when={store.settingsDirty()}>
-          <span
-            class="inline-flex items-center gap-1.5 rounded-full border border-leaf/30 bg-mint px-2 py-0.5 text-[11.5px] font-medium text-leaf-deep"
-            role="status"
-          >
-            <span class="h-1.5 w-1.5 rounded-full bg-leaf" aria-hidden="true" />
-            unsaved
-          </span>
-        </Show>
-      </ViewHeading>
+      <ViewHeading title="Settings" note="Model, chunking, search, and sources. Everything stays on this machine." />
 
       <Show when={draft()} fallback={<p class="note text-muted">Loading settings…</p>}>
-        <div class="scroll-quiet -mr-2 flex-1 overflow-y-auto pr-2">
+        <div class="scroll-quiet -mr-2 flex-1 overflow-y-auto pb-20 pr-2">
           <Section
             title="Model"
             note="The embedding engine runs in-process. Import a .gguf below, or drop one into the models folder of the vectile data directory. It shows up here automatically."
@@ -939,14 +928,16 @@ export function SettingsView() {
                       count={draft()!.obsidian_vaults.length}
                       unit="path"
                     />
-                    <PathList
-                      values={draft()!.obsidian_vaults}
-                      onAdd={(v) => addPath("obsidian_vaults", v)}
-                      onRemove={(v) => removePath("obsidian_vaults", v)}
-                      title="Choose an Obsidian vault"
-                      placeholder="path to a vault…"
-                      empty="No vaults yet. Add one and its notes become searchable."
-                    />
+                    <div id="setup-add-folder">
+                      <PathList
+                        values={draft()!.obsidian_vaults}
+                        onAdd={(v) => addPath("obsidian_vaults", v)}
+                        onRemove={(v) => removePath("obsidian_vaults", v)}
+                        title="Choose an Obsidian vault"
+                        placeholder="path to a vault…"
+                        empty="No vaults yet. Add one and its notes become searchable."
+                      />
+                    </div>
                     <div class="space-y-2.5 rounded-control border border-line bg-surface/40 p-3">
                       <SourceHeading
                         icon={<SlashIcon size={14} />}
@@ -1065,6 +1056,26 @@ export function SettingsView() {
               hint="Launch vectile when you sign in, so it's already open and indexing before you need it."
             />
           </Section>
+        </div>
+      </Show>
+
+      {/* Sticky save bar: pinned to the bottom of the view so saving doesn't
+          mean scrolling back to the top. Only appears while the draft is dirty. */}
+      <Show when={store.settingsDirty()}>
+        <div class="absolute inset-x-0 bottom-0 flex items-center gap-3 border-t border-line bg-paper/90 px-6 py-3">
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full border border-leaf/30 bg-mint px-2 py-0.5 text-[11.5px] font-medium text-leaf-deep"
+            role="status"
+          >
+            <span class="h-1.5 w-1.5 rounded-full bg-leaf" aria-hidden="true" />
+            unsaved
+          </span>
+          <span class="ml-auto flex items-center gap-2">
+            <Button variant="ghost" onClick={() => store.confirmLeave({ discard: true })}>
+              Discard
+            </Button>
+            <Button onClick={() => void save()}>Save settings</Button>
+          </span>
         </div>
       </Show>
 

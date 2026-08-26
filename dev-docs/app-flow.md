@@ -28,7 +28,7 @@ flowchart LR
 2. The app opens the database and creates the schema if it is missing.
 3. The frontend loads. On mount it asks the backend for status, collections, and settings.
 
-Nothing is indexed at startup. The model is not loaded yet either. Both happen lazily: the model loads on the first embed, indexing starts when you tell it to.
+Nothing is indexed at startup. The model is not loaded yet either. Both happen lazily: the model loads on the first embed, indexing starts when you tell it to. On a fresh install (an empty library), a three-step tour walks Settings → Index → Search: add a folder, index it, search.
 
 ## Where your files go
 
@@ -53,7 +53,7 @@ Each saved change writes `config.json`. You also set chunk size, search weights,
 
 Indexing turns files into searchable chunks.
 
-1. You press Index on a collection, or Index all.
+1. You press "Index new" on a collection to pick up changed files, or "Re-index all" to re-embed everything, or Index all / Re-index all in the header for every collection at once.
 2. A background goroutine walks the source. For each file it checks whether the file changed since the last run. Unchanged files are skipped. That is the incremental part.
 3. Each file is parsed into text, then cut into chunks of about 500 words with a small overlap.
 4. Each chunk is embedded. The bge-m3 model turns the text into a list of 1024 numbers that capture its meaning.
@@ -75,7 +75,7 @@ Type a query in the search box. The backend runs two searches at once.
 
 The vector path is two-stage. A cheap binary-quantized index finds a pool of candidates, then the exact float vectors are fetched and reranked by distance. That keeps searches fast on big libraries.
 
-Both result lists are merged with Reciprocal Rank Fusion, which blends ranks rather than scores. The frontend shows them as cards with title, snippet, score, collection, and path.
+Both result lists are merged with Reciprocal Rank Fusion, which blends ranks rather than scores. The frontend shows them as cards with title, snippet, rank, collection, and path; a small toggle switches each result to the blended score. Expanding a card shows the whole passage plus "Open file" and "Reveal in folder" actions.
 
 Filters narrow the search: collection, file type, path substring, sender or author (from metadata), and date range. The results count comes from your top-k setting.
 
@@ -85,7 +85,7 @@ Library lists every collection with its source and chunk counts. Expanding one l
 
 ## Background jobs
 
-Auto-reindex, if enabled, runs Index all on a timer. A loop checks the config once a minute and fires when the interval has elapsed. Start-on-login registers the app to launch with your session.
+Auto-reindex, if enabled, runs Index all on a timer. A loop checks the config once a minute and fires when the interval has elapsed. Start-on-login registers the app to launch with your session. The status strip shows when the library was last indexed (the most recent source update). When auto-reindex is off and that date is more than a day old, Search shows a quiet "Last indexed N days ago · Re-index" hint.
 
 ## The model engine
 

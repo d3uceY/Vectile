@@ -71,7 +71,7 @@ export function BrowseView() {
       </div>
 
       <div class="relative">
-        <ViewHeading title="Browse" note="collections, files, and the chunks inside them" />
+        <ViewHeading title="Browse" note="Read the chunks inside your files." />
       </div>
 
       <div class="relative @container min-h-0 flex-1">

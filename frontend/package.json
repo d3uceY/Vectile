@@ -15,6 +15,7 @@
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@wailsio/runtime": "latest",
+    "driver.js": "^1.8.0",
     "solid-js": "^1.9.15",
     "tailwindcss": "^4.3.3"
   },

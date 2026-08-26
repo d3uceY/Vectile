@@ -1,9 +1,10 @@
 import { createSignal, For, Show, type JSX } from "solid-js";
 import { useAppStore } from "../../lib/store";
+import { daysSince } from "../../lib/time";
 import type { SearchFilters } from "../../lib/types";
 import { exampleQueries, termsOf } from "../../lib/mock";
 import { SearchIcon, CloseIcon, BoltIcon } from "../ui/icons";
-import { EmptyState, Kbd, Select, Skeleton } from "../ui/primitives";
+import { EmptyState, Button, Kbd, Select, Skeleton } from "../ui/primitives";
 import { GridPattern } from "../ui/patterns";
 import { ResultCard } from "./ResultCard";
 
@@ -89,6 +90,19 @@ export function SearchView() {
     store.filters().dateFrom ||
     store.filters().dateTo;
 
+  // Stale-library hint: fires once the most recent index is a day old and
+  // auto-reindex is off, so "I added a note and search can't find it" isn't
+  // a silent failure.
+  const freshnessDays = () => {
+    const last = store.status()?.lastIndexed;
+    return last ? daysSince(last) : null;
+  };
+  const showFreshness = () =>
+    freshnessDays() !== null &&
+    freshnessDays()! >= 1 &&
+    store.config()?.gui.auto_reindex === false &&
+    !store.indexing();
+
   // The configured default result count (Settings → search_defaults.top_k) may
   // not be one of the fixed presets, so surface it as its own option.
   const resultOptions = () => {
@@ -108,6 +122,7 @@ export function SearchView() {
         >
           <SearchIcon size={19} class="shrink-0 text-leaf" />
           <input
+            id="search-input"
             ref={(el) => store.registerSearchInput(el)}
             class="h-13 w-full bg-transparent text-[15.5px] text-ink outline-none placeholder:text-faint"
             placeholder="Search your notes, books, email, and code"
@@ -202,6 +217,10 @@ export function SearchView() {
               </select>
             </FilterField>
           </div>
+        </Show>
+
+        <Show when={showFreshness()}>
+          <FreshnessBar days={freshnessDays()!} onReindex={() => void store.startIndexAll()} />
         </Show>
       </div>
 
@@ -298,13 +317,54 @@ function ResultList() {
       }
     >
       <div class="enter-stagger space-y-3">
-        <p class="data text-faint">
-          {results().length} result{results().length === 1 ? "" : "s"} · hybrid ranked
-        </p>
+        <div class="flex items-center justify-between gap-3">
+          <p class="data text-faint">
+            {results().length} result{results().length === 1 ? "" : "s"} · hybrid ranked
+          </p>
+          <div
+            class="flex items-center rounded-full border border-line bg-paper p-0.5"
+            role="group"
+            aria-label="Result score display"
+          >
+            <button
+              type="button"
+              class={`h-6 rounded-full px-2.5 text-[11.5px] font-medium transition-colors duration-150 ease-snappy ${
+                store.scoreDisplay() === "rank" ? "bg-mint text-leaf-deep" : "text-muted hover:text-ink"
+              }`}
+              onClick={() => store.setScoreDisplay("rank")}
+              aria-pressed={store.scoreDisplay() === "rank"}
+            >
+              # rank
+            </button>
+            <button
+              type="button"
+              class={`h-6 rounded-full px-2.5 text-[11.5px] font-medium transition-colors duration-150 ease-snappy ${
+                store.scoreDisplay() === "percent" ? "bg-mint text-leaf-deep" : "text-muted hover:text-ink"
+              }`}
+              onClick={() => store.setScoreDisplay("percent")}
+              aria-pressed={store.scoreDisplay() === "percent"}
+            >
+              % score
+            </button>
+          </div>
+        </div>
         <For each={results()}>
-          {(r) => <ResultCard result={r} terms={termsOf(store.query())} />}
+          {(r, i) => <ResultCard result={r} rank={i() + 1} terms={termsOf(store.query())} />}
         </For>
       </div>
     </Show>
+  );
+}
+
+function FreshnessBar(props: { days: number; onReindex: () => void }) {
+  return (
+    <div class="mt-3 flex items-center gap-3 rounded-control border border-line bg-surface/40 py-2 pl-3 pr-2">
+      <span class="note text-[13px] leading-5 text-muted">
+        Last indexed {props.days} day{props.days === 1 ? "" : "s"} ago
+      </span>
+      <Button size="sm" variant="outline" class="ml-auto" onClick={props.onReindex}>
+        Re-index
+      </Button>
+    </div>
   );
 }

@@ -40,6 +40,11 @@ func (s *AppService) GetStatus() Status {
 		size = info.Size()
 	}
 
+
+	var lastIndexed sql.NullString
+	_ = db.DB.QueryRow(`SELECT MAX(last_indexed_at) FROM sources
+		WHERE last_indexed_at IS NOT NULL AND last_indexed_at != ''`).Scan(&lastIndexed)
+
 	modelErr := ""
 	if err := s.core.Embedder.LoadError(); err != nil {
 		modelErr = err.Error()
@@ -60,6 +65,7 @@ func (s *AppService) GetStatus() Status {
 		ModelName:   modelName,
 		ModelPath:   s.core.Embedder.ModelPath(),
 		ModelError:  modelErr,
+		LastIndexed: lastIndexed.String,
 	}
 }
 
@@ -69,6 +75,8 @@ func (s *AppService) ListCollections() ([]Collection, error) {
 		SELECT c.id, c.name, c.collection_type, c.description, c.created_at,
 			(SELECT COUNT(*) FROM sources s WHERE s.collection_id = c.id),
 			(SELECT COUNT(*) FROM documents d WHERE d.collection_id = c.id),
+			(SELECT MAX(s2.last_indexed_at) FROM sources s2
+			  WHERE s2.collection_id = c.id AND s2.last_indexed_at IS NOT NULL AND s2.last_indexed_at != ''),
 			CASE WHEN EXISTS(SELECT 1 FROM documents d WHERE d.collection_id = c.id)
 			      AND NOT EXISTS(SELECT 1 FROM documents d JOIN vec_documents v
 			                     ON v.document_id = d.id WHERE d.collection_id = c.id)
@@ -83,9 +91,9 @@ func (s *AppService) ListCollections() ([]Collection, error) {
 	var out []Collection
 	for rows.Next() {
 		var c Collection
-		var desc, created sql.NullString
+		var desc, created, last sql.NullString
 		var needsReindex int
-		if err := rows.Scan(&c.ID, &c.Name, &c.Type, &desc, &created, &c.Sources, &c.Chunks, &needsReindex); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Type, &desc, &created, &c.Sources, &c.Chunks, &last, &needsReindex); err != nil {
 			return nil, err
 		}
 		if desc.Valid {
@@ -94,6 +102,7 @@ func (s *AppService) ListCollections() ([]Collection, error) {
 		if created.Valid {
 			c.Created = created.String
 		}
+		c.LastIndexed = last.String
 		c.NeedsReindex = needsReindex == 1
 		c.Enabled = s.core.Cfg.IsCollectionEnabled(c.Name)
 		out = append(out, c)
@@ -171,6 +180,32 @@ func (s *AppService) GetModelError() string {
 		return err.Error()
 	}
 	return ""
+}
+
+// OpenFile opens a file or folder with the OS default application.
+func (s *AppService) OpenFile(path string) error {
+	if err := ensurePathExists(path); err != nil {
+		return err
+	}
+	return openPath(path)
+}
+
+// RevealInFolder selects a file in the OS file manager (opens the parent
+// folder for a directory).
+func (s *AppService) RevealInFolder(path string) error {
+	if err := ensurePathExists(path); err != nil {
+		return err
+	}
+	return revealPath(path)
+}
+
+// ensurePathExists guards the open/reveal helpers so a stale indexed path
+// gets a useful error instead of a silent no-op.
+func ensurePathExists(path string) error {
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("path not found: %s", path)
+	}
+	return nil
 }
 
 // parseMeta decodes a JSON metadata column into a value the frontend can use.

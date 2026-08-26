@@ -26,6 +26,8 @@ export interface Collection {
   created: string;
   enabled: boolean;
   needsReindex: boolean;
+  /** Most recent last_indexed_at among the collection's sources. */
+  lastIndexed?: string;
 }
 
 export interface Source {
@@ -84,6 +86,7 @@ export interface Status {
   modelName: string;
   modelPath: string;
   modelError: string;
+  lastIndexed?: string;
 }
 
 /** Mirrors config.SearchDefaults / GUIConfig / Config (snake_case JSON). */

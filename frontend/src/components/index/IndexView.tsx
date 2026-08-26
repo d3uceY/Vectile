@@ -1,7 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import { useAppStore } from "../../lib/store";
-import { Button, Chip, ConfirmDialog, EmptyState, Toggle, ViewHeading } from "../ui/primitives";
-import { IndexIcon, TrashIcon } from "../ui/icons";
+import { Button, Chip, EmptyState, Toggle, ViewHeading } from "../ui/primitives";
+import { IndexIcon } from "../ui/icons";
 import { IndexProgressBar } from "./IndexProgressBar";
 
 type Configured = { name: string; type: string; enabled: boolean };
@@ -9,18 +9,6 @@ type Configured = { name: string; type: string; enabled: boolean };
 export function IndexView() {
   const store = useAppStore();
   const [confirming, setConfirming] = createSignal<string | null>(null);
-  // Confirmation state for deleting a collection (data + Settings entry).
-  const [deleteConfirm, setDeleteConfirm] = createSignal<string | null>(null);
-  const [deleting, setDeleting] = createSignal(false);
-
-  const doDelete = async () => {
-    const name = deleteConfirm();
-    if (!name) return;
-    setDeleting(true);
-    const ok = await store.deleteCollection(name, name);
-    setDeleting(false);
-    if (ok) setDeleteConfirm(null);
-  };
 
   const configured = (): Configured[] => {
     const cfg = store.config();
@@ -43,9 +31,15 @@ export function IndexView() {
 
   return (
     <div class="relative flex h-full flex-col">
-      <ViewHeading title="Index" note="Add sources in Settings, then index them here. Deleted files are pruned automatically.">
-        <Button onClick={() => store.startIndexAll(false)} disabled={store.indexing()}>
+      <ViewHeading
+        title="Index"
+        note="Add sources in Settings, then index them here. Deleted files are pruned automatically. Index new adds only changed files; Re-index all re-embeds everything."
+      >
+        <Button id="setup-index-all" onClick={() => store.startIndexAll(false)} disabled={store.indexing()}>
           Index all
+        </Button>
+        <Button variant="outline" onClick={() => store.startIndexAll(true)} disabled={store.indexing()}>
+          Re-index all
         </Button>
       </ViewHeading>
 
@@ -106,7 +100,7 @@ export function IndexView() {
                         disabled={store.indexing() || !item.enabled}
                         onClick={() => store.startIndex(item.name, false)}
                       >
-                        Index
+                        Index new
                       </Button>
                       <Button
                         size="sm"
@@ -114,22 +108,11 @@ export function IndexView() {
                         disabled={store.indexing() || !item.enabled}
                         onClick={() => store.startIndex(item.name, true)}
                       >
-                        Re-index
+                        Re-index all
                       </Button>
                       <Button size="sm" variant="ghost" disabled={store.indexing()} onClick={() => store.runPrune(item.name)}>
                         Prune
                       </Button>
-                      <button
-                        type="button"
-                        class="inline-flex h-8 select-none items-center justify-center gap-1.5 rounded-control px-3 text-[13px] font-medium text-faint transition-all duration-150 ease-snappy hover:bg-surface hover:text-danger active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none"
-                        disabled={store.indexing()}
-                        onClick={() => setDeleteConfirm(item.name)}
-                        aria-label={`Delete collection ${item.name}`}
-                        title="Delete this collection and its Settings entry"
-                      >
-                        <TrashIcon size={14} />
-                        Delete
-                      </button>
                       <Toggle checked={item.enabled} onChange={(v) => store.toggleCollection(item.name, v)} label="Enabled" />
                     </div>
                   </div>
@@ -184,28 +167,6 @@ export function IndexView() {
           </div>
         </div>
       </Show>
-      {/* Delete-collection confirmation */}
-      <ConfirmDialog
-        open={deleteConfirm() !== null}
-        title={deleteConfirm() ? `Delete ${deleteConfirm()}?` : ""}
-        busy={deleting()}
-        onCancel={() => setDeleteConfirm(null)}
-        onConfirm={() => void doDelete()}
-        body={
-          <p>
-            Removes <span class="font-medium text-ink">“{deleteConfirm()}”</span>
-            {dbCol(deleteConfirm() ?? "") && (
-              <> and its{" "}
-                <span class="font-medium text-ink">
-                  {dbCol(deleteConfirm() ?? "")!.chunks.toLocaleString()} chunks
-                </span>{" "}
-              </>
-            )}{" "}
-            from the index and from Settings (its whole group of source paths). Files on disk are
-            untouched. Re-add the source in Settings to index it again.
-          </p>
-        }
-      />
     </div>
   );
 }

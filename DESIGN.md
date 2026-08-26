@@ -61,10 +61,10 @@ One authored moment: result lists stagger in (fade + 4px rise, 220ms, snappy eas
 
 ## Views
 
-- **Search** (home): large search bar with ⌘K; filter bar (collection, source type, advanced: path, sender/author, date, top-k); index-card results with title, highlighted snippet, score, collection chip, mono path; idle state with example queries on graph paper; skeleton loading; honest empty state.
-- **Library**: collections as expandable rows (type badge, sources, chunks, created) revealing per-source file lists.
+- **Search** (home): large search bar with ⌘K; filter bar (collection, source type, advanced: path, sender/author, date, top-k); index-card results with title, highlighted snippet, rank (toggleable to score), collection chip, mono path, and a "Read full passage" expand that reveals Open file / Reveal in folder; a quiet stale-library hint under the filter bar; idle state with example queries on graph paper; skeleton loading; honest empty state.
+- **Library**: collections as expandable rows (type badge, file count, chunks, last indexed) revealing per-source file lists.
 - **Browse**: collections → sources → chunks file tree (folders-first, indicator lines, arrow-key nav, expand/collapse all) beside a chunk preview card.
-- **Index / Settings**: honest placeholders on graph paper (land with the backend slice).
+- **Index**: per-collection "Index new" / "Re-index all" / "Prune" with a header "Index all" / "Re-index all" and live progress. **Settings**: model, chunking, search, sources, and indexing ledgers with a sticky save bar when edited. **First run**: a driver.js tour on an empty library walks Settings → Index → Search and never shows again.
 
 ## Direction contract
 

@@ -54,6 +54,8 @@ Config. The config file is modeled on local-rag's, minus the pieces vectile does
 
 Frontend bridge. Wails generates TypeScript bindings for the three services. The UI only talks to `frontend/src/lib/api.ts`, which wraps those bindings. Regenerating bindings never touches component code.
 
+Open in the OS. AppService exposes `OpenFile` and `RevealInFolder`; the per-OS commands live in `backend/services/open_{windows,darwin,linux}.go` (rundll32/explorer, open/open -R, xdg-open). `GetStatus` and `ListCollections` also report `lastIndexed` (the most recent `last_indexed_at`), which drives the status-strip date and the stale-library hint.
+
 ## Problems I hit and how I fixed them 
 
 1. Copy-Item flattened llama-go. My first `Copy-Item -Recurse` put llama-go's contents directly in `third_party/`, not `third_party/llama-go`. `go mod tidy` failed with `reading third_party\llama-go\go.mod: The system cannot find the path specified`. Fix: create the subfolder and move the files into it. 

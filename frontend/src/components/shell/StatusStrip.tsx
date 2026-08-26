@@ -1,4 +1,5 @@
 import { useAppStore } from "../../lib/store";
+import { lastIndexedLabel } from "../../lib/time";
 import { HOME_URL, openExternal } from "../../lib/update";
 import { Kbd } from "../ui/primitives";
 
@@ -36,6 +37,7 @@ export function StatusStrip(props: { version?: string }) {
         <span class="data truncate text-faint">
           {totals().collections} collections · {totals().chunks.toLocaleString()} chunks
           {totals().size ? ` · ${totals().size}` : ""}
+          {lastIndexedLabel(st()?.lastIndexed ?? "")}
         </span>
       </div>
       <div class="flex shrink-0 items-center gap-3">

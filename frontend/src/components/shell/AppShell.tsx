@@ -12,6 +12,7 @@ import { LibraryView } from "../library/LibraryView";
 import { BrowseView } from "../library/BrowseView";
 import { IndexView } from "../index/IndexView";
 import { SettingsView } from "../settings/SettingsView";
+import { SetupTour } from "./SetupTour";
 
 export function AppShell() {
   const store = useAppStore();
@@ -83,6 +84,7 @@ export function AppShell() {
       />
 
       <ToastStack toasts={store.toasts()} onDismiss={(id) => store.dismissToast(id)} />
+      <SetupTour />
     </div>
   );
 }

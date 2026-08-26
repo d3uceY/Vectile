@@ -47,6 +47,7 @@ const status = {
   modelName: MODEL_NAME,
   modelPath: MODEL_PATH,
   modelError: "",
+  lastIndexed: "2026-08-24", // most recent last_indexed_at across sources
 };
 
 const config = {
@@ -65,7 +66,7 @@ const config = {
   git_history_in_months: 6,
   git_commit_subject_blacklist: ["^Merge ", "^fixup! ", "^WIP "],
   search_defaults: { top_k: 12, rrf_k: 60, vector_weight: 1.0, fts_weight: 1.0 },
-  gui: { auto_reindex: true, auto_reindex_interval_minutes: 60, start_on_login: false },
+  gui: { auto_reindex: false, auto_reindex_interval_minutes: 60, start_on_login: false },
 };
 
 // ---------------------------------------------------------------------------
@@ -82,11 +83,11 @@ let models = [
 // ---------------------------------------------------------------------------
 
 const collections = [
-  { id: 1, name: "calibre", type: "system", description: "your ebook library — chunked for search", sources: 2, chunks: 3810, created: "2025-11-02", enabled: true },
-  { id: 2, name: "email", type: "system", description: "Gmail export — invoices, receipts, long threads", sources: 4, chunks: 2310, created: "2025-09-14", enabled: true },
-  { id: 3, name: "notes", type: "project", description: "Obsidian vault — daily notes, zettels, project journals", sources: 8, chunks: 9812, created: "2025-06-30", enabled: true },
-  { id: 4, name: "rss", type: "system", description: "feeds on Go, databases, and photography", sources: 6, chunks: 3104, created: "2025-10-11", enabled: true },
-  { id: 5, name: "vectile", type: "code", description: "this repo — backend, frontend, and git history", sources: 6, chunks: 4831, created: "2026-08-24", enabled: true },
+  { id: 1, name: "calibre", type: "system", description: "your ebook library — chunked for search", sources: 2, chunks: 3810, created: "2025-11-02", enabled: true, lastIndexed: "2025-11-02" },
+  { id: 2, name: "email", type: "system", description: "Gmail export — invoices, receipts, long threads", sources: 4, chunks: 2310, created: "2025-09-14", enabled: true, lastIndexed: "2025-09-14" },
+  { id: 3, name: "notes", type: "project", description: "Obsidian vault — daily notes, zettels, project journals", sources: 8, chunks: 9812, created: "2025-06-30", enabled: true, lastIndexed: "2026-08-24" },
+  { id: 4, name: "rss", type: "system", description: "feeds on Go, databases, and photography", sources: 6, chunks: 3104, created: "2025-10-11", enabled: true, lastIndexed: "2025-10-11" },
+  { id: 5, name: "vectile", type: "code", description: "this repo — backend, frontend, and git history", sources: 6, chunks: 4831, created: "2026-08-24", enabled: true, lastIndexed: "2026-08-24" },
 ];
 
 let sources = [

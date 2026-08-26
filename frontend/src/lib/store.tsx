@@ -112,6 +112,16 @@ export function createAppStore() {
   const [results, setResults] = createSignal<SearchResult[]>([]);
   const [searchState, setSearchState] = createSignal<"idle" | "searching" | "done">("idle");
 
+  // Result score display: rank (#1) is the honest default; percent is opt-in
+  // and persisted so the choice survives restarts.
+  const [scoreDisplay, setScoreDisplayRaw] = createSignal<"rank" | "percent">(
+    localStorage.getItem("vectile.score-display") === "percent" ? "percent" : "rank",
+  );
+  const setScoreDisplay = (v: "rank" | "percent") => {
+    setScoreDisplayRaw(v);
+    localStorage.setItem("vectile.score-display", v);
+  };
+
   // Library / Browse state
   const [expandedCollection, setExpandedCollection] = createSignal<string | null>(null);
   const [selectedDoc, setSelectedDoc] = createSignal<Document | null>(null);
@@ -410,6 +420,19 @@ export function createAppStore() {
     }
   };
 
+  // Add a source path to the config (used by the setup tour and Settings) and
+  // reload the frontend config so new paths show up immediately.
+  const addSource = async (kind: string, name: string, path: string): Promise<boolean> => {
+    try {
+      await api.addSourcePath(kind, name, path);
+      await loadConfig();
+      return true;
+    } catch (err) {
+      pushToast(`Could not add ${name}: ${err}`, "danger");
+      return false;
+    }
+  };
+
   const toggleCollection = async (name: string, enabled: boolean) => {
     try {
       await api.toggleCollectionEnabled(name, enabled);
@@ -591,6 +614,8 @@ export function createAppStore() {
     filters,
     setFilters,
     results,
+    scoreDisplay,
+    setScoreDisplay,
     searchState,
     runSearch,
     clearSearch,
@@ -608,6 +633,7 @@ export function createAppStore() {
     startIndexAll,
     cancelIndex,
     runPrune,
+    addSource,
     toggleCollection,
     deleteSource,
     deleteCollection,

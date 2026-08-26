@@ -192,3 +192,13 @@ export async function pickFolder(title = "Choose a folder"): Promise<string> {
     return "";
   }
 }
+
+/** Opens a file or folder with the OS default application. */
+export async function openFile(path: string): Promise<void> {
+  await AppService.OpenFile(path);
+}
+
+/** Selects a file in the OS file manager (opens the parent folder for a dir). */
+export async function revealInFolder(path: string): Promise<void> {
+  await AppService.RevealInFolder(path);
+}

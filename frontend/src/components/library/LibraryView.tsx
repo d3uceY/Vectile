@@ -61,7 +61,7 @@ export function LibraryView() {
       <div class="relative">
         <ViewHeading
           title="Library"
-          note="every collection you've indexed, with its files and chunk counts"
+          note="What's indexed. Remove collections and sources here."
         />
       </div>
 
@@ -85,7 +85,7 @@ export function LibraryView() {
         <div class="sheet overflow-hidden">
           <div class="grid grid-cols-12 gap-2 border-b border-line bg-surface/50 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
             <span class="col-span-5">Collection</span>
-            <span class="col-span-3">Sources</span>
+            <span class="col-span-3">Files</span>
             <span class="col-span-2 text-right">Chunks</span>
             <span class="col-span-2 text-right">Indexed</span>
           </div>
@@ -124,11 +124,13 @@ export function LibraryView() {
                             )}
                           </span>
                         </span>
-                        <span class="data col-span-2 text-muted">{sources().length} files</span>
+                        <span class="data col-span-2 text-muted">{c.sources}</span>
                         <span class="data col-span-2 text-right text-muted">
                           {c.chunks.toLocaleString()}
                         </span>
-                        <span class="data col-span-2 text-right text-faint">{c.created}</span>
+                        <span class="data col-span-2 text-right text-faint">
+                          {c.lastIndexed ? new Date(c.lastIndexed).toLocaleDateString() : "never"}
+                        </span>
                       </button>
                       <button
                         type="button"

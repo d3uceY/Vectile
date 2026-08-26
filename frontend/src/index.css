@@ -13,6 +13,7 @@
 @import "@fontsource/ibm-plex-mono/500.css";
 
 @import "tailwindcss";
+@import "driver.js/dist/driver.css";
 
 @theme {
   /* Type voices: Fraunces (serif) carries titles + reading; Plus Jakarta
@@ -327,4 +328,79 @@
     border-radius: 9999px;
     border: 3px solid var(--color-paper);
   }
+}
+
+/* ---- driver.js setup tour: the notebook world's paper popover ----
+   driver.js hardcodes most colors, so the theme is a targeted override of its
+   classes rather than a variable swap. The overlay tint comes from the config
+   (overlayColor/overlayOpacity); the next button is tagged .setup-next in
+   SetupTour's onPopoverRender so it reads as the primary action. */
+.driver-popover {
+  --driver-popover-font-family: var(--font-sans);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+  color: var(--color-ink);
+  min-width: 260px;
+  max-width: 330px;
+  padding: 18px 18px 14px;
+}
+.driver-popover-title {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 17px;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  color: var(--color-ink);
+  padding-right: 24px;
+}
+.driver-popover-description {
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--color-muted);
+}
+.driver-popover-progress-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+.driver-popover-close-btn {
+  color: var(--color-faint);
+}
+.driver-popover-close-btn:hover,
+.driver-popover-close-btn:focus {
+  color: var(--color-ink);
+}
+.driver-popover-footer-btn {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-ink-soft);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 6px 12px;
+  transition: all 150ms var(--ease-snappy);
+}
+.driver-popover-footer-btn:hover,
+.driver-popover-footer-btn:focus {
+  border-color: var(--color-leaf);
+  color: var(--color-ink);
+}
+.driver-popover .setup-next {
+  background: var(--color-leaf-deep);
+  border-color: var(--color-leaf-deep);
+  color: #fff;
+}
+.driver-popover .setup-next:hover,
+.driver-popover .setup-next:focus {
+  background: var(--color-leaf);
+  border-color: var(--color-leaf);
+  color: #fff;
+}
+.driver-popover .driver-popover-btn-disabled {
+  opacity: 0.4;
 }

@@ -80,7 +80,7 @@ func main() {
 		Title:     "vectile",
 		Width:     1180,
 		Height:    760,
-		MinWidth:  900,
+		MinWidth:  680,
 		MinHeight: 600,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,

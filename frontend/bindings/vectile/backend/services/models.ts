@@ -28,6 +28,7 @@ export class Collection {
     "created": string;
     "enabled": boolean;
     "needsReindex": boolean;
+    "lastIndexed": string;
 
     /** Creates a new Collection instance. */
     constructor($$source: Partial<Collection> = {}) {
@@ -57,6 +58,9 @@ export class Collection {
         }
         if (!("needsReindex" in $$source)) {
             this["needsReindex"] = false;
+        }
+        if (!("lastIndexed" in $$source)) {
+            this["lastIndexed"] = "";
         }
 
         Object.assign(this, $$source);
@@ -286,6 +290,7 @@ export class Status {
     "modelName": string;
     "modelPath": string;
     "modelError": string;
+    "lastIndexed": string;
 
     /** Creates a new Status instance. */
     constructor($$source: Partial<Status> = {}) {
@@ -312,6 +317,9 @@ export class Status {
         }
         if (!("modelError" in $$source)) {
             this["modelError"] = "";
+        }
+        if (!("lastIndexed" in $$source)) {
+            this["lastIndexed"] = "";
         }
 
         Object.assign(this, $$source);

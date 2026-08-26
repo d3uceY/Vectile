@@ -1,6 +1,8 @@
 import { createSignal, For, Show } from "solid-js";
+import * as api from "../../lib/api";
+import { useAppStore } from "../../lib/store";
 import type { SearchResult } from "../../lib/types";
-import { ChevronDown } from "../ui/icons";
+import { ChevronDown, FolderIcon, FolderOpenIcon } from "../ui/icons";
 import { Chip } from "../ui/primitives";
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -46,34 +48,50 @@ function metaLine(r: SearchResult): string[] {
   return out;
 }
 
-export function ResultCard(props: { result: SearchResult; terms: string[] }) {
+export function ResultCard(props: { result: SearchResult; terms: string[]; rank: number }) {
+  const store = useAppStore();
   const [open, setOpen] = createSignal(false);
   const r = () => props.result;
   const meta = () => metaLine(r());
 
+  const score = () =>
+    store.scoreDisplay() === "rank" ? `#${props.rank}` : `${Math.round(r().score * 100)}%`;
+
+  const onOpen = async () => {
+    try {
+      await api.openFile(r().sourcePath);
+    } catch (err) {
+      store.pushToast(`Cannot open ${r().sourcePath}: ${err}`, "danger");
+    }
+  };
+  const onReveal = async () => {
+    try {
+      await api.revealInFolder(r().sourcePath);
+    } catch (err) {
+      store.pushToast(`Cannot reveal: ${err}`, "danger");
+    }
+  };
+
   return (
     <article
-      class={`sheet group cursor-pointer px-5 py-4 transition-all duration-150 ease-snappy hover:border-leaf/40 hover:shadow-card ${
+      class={`sheet px-5 py-4 transition-all duration-150 ease-snappy hover:border-leaf/40 hover:shadow-card ${
         open() ? "border-leaf/40 shadow-card" : ""
       }`}
-      onClick={() => setOpen((v) => !v)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          setOpen((v) => !v);
-        }
-      }}
-      role="button"
-      tabindex={0}
-      aria-expanded={open()}
-      aria-label={`${r().title}, expand to read the full passage`}
     >
-      <div class="flex items-start justify-between gap-4">
-        <h3 class="title text-[15px] leading-6 tracking-[-0.005em] text-ink">
+      {/* Title row is the expand toggle; open/reveal live in the expanded panel
+          so no interactive element is nested inside another. */}
+      <button
+        type="button"
+        class="flex w-full items-start justify-between gap-4 text-left"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open()}
+        aria-label={`${r().title}, ${open() ? "close" : "read"} the full passage`}
+      >
+        <h3 class="title min-w-0 flex-1 text-[15px] leading-6 tracking-[-0.005em] text-ink">
           <Highlighted text={r().title} terms={props.terms} />
         </h3>
-        <span class="data mt-1 shrink-0 text-leaf-deep">{Math.round(r().score * 100)}%</span>
-      </div>
+        <span class="data mt-1 shrink-0 text-leaf-deep">{score()}</span>
+      </button>
 
       <p class="read mt-1.5 line-clamp-3 text-[14.5px] leading-[1.6] text-muted">
         <Highlighted text={r().content} terms={props.terms} />
@@ -84,9 +102,30 @@ export function ResultCard(props: { result: SearchResult; terms: string[] }) {
           <p class="read max-h-48 overflow-y-auto whitespace-pre-wrap text-[14.5px] leading-[1.65] text-ink-soft">
             {r().content}
           </p>
-          <Show when={meta().length > 0}>
-            <p class="data mt-3 text-faint">{meta().join(" · ")}</p>
-          </Show>
+          <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Show when={meta().length > 0}>
+              <p class="data text-faint">{meta().join(" · ")}</p>
+            </Show>
+            <span class="ml-auto flex items-center gap-1.5">
+              <button
+                type="button"
+                class="inline-flex h-8 items-center gap-1.5 rounded-control border border-line-strong bg-paper px-2.5 text-[12.5px] font-medium text-ink-soft transition-colors duration-150 ease-snappy hover:border-leaf/50 hover:text-ink"
+                onClick={() => void onOpen()}
+              >
+                <FolderOpenIcon size={14} class="text-leaf" />
+                Open file
+              </button>
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-control border border-line-strong bg-paper text-muted transition-colors duration-150 ease-snappy hover:border-leaf/50 hover:text-ink"
+                onClick={() => void onReveal()}
+                aria-label="Reveal in folder"
+                title="Reveal in folder"
+              >
+                <FolderIcon size={14} />
+              </button>
+            </span>
+          </div>
         </div>
       </Show>
 
@@ -95,12 +134,18 @@ export function ResultCard(props: { result: SearchResult; terms: string[] }) {
         <span class="data shrink-0 text-faint">{r().sourceType}</span>
         <span class="mx-0.5 h-3 w-px shrink-0 bg-line-strong" aria-hidden="true" />
         <span class="data truncate text-faint">{r().sourcePath}</span>
-        <ChevronDown
-          size={14}
-          class={`ml-auto shrink-0 text-faint transition-transform duration-150 ease-snappy ${
-            open() ? "rotate-180" : ""
-          }`}
-        />
+        <button
+          type="button"
+          class="ml-auto flex shrink-0 items-center gap-1 rounded-control px-2 py-1 text-[12px] font-medium text-muted transition-colors duration-150 ease-snappy hover:bg-surface hover:text-ink"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open()}
+        >
+          <span>{open() ? "Close" : "Read full passage"}</span>
+          <ChevronDown
+            size={13}
+            class={`transition-transform duration-150 ease-snappy ${open() ? "rotate-180" : ""}`}
+          />
+        </button>
       </div>
     </article>
   );

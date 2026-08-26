@@ -80,6 +80,21 @@ export function ListSources(collectionID: number): $CancellablePromise<$models.S
     });
 }
 
+/**
+ * OpenFile opens a file or folder with the OS default application.
+ */
+export function OpenFile(path: string): $CancellablePromise<void> {
+    return $Call.ByID(3971017067, path);
+}
+
+/**
+ * RevealInFolder selects a file in the OS file manager (opens the parent
+ * folder for a directory).
+ */
+export function RevealInFolder(path: string): $CancellablePromise<void> {
+    return $Call.ByID(1720853207, path);
+}
+
 // Private type creation functions
 const $$createType0 = $models.Status.createFrom;
 const $$createType1 = $models.Collection.createFrom;

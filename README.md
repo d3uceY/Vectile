@@ -81,6 +81,8 @@ The app never downloads an embedding model. Drop a `.gguf` file into the `models
 
 ## Quick start
 
+On a fresh install, a short tour walks you through it: add a folder, index it, then search.
+
 1. Launch vectile.
 2. Import an embedding model in Settings, or drop a `.gguf` into `models/`.
 3. Add sources in Settings: Obsidian vaults, project folders, code repositories, Calibre libraries.
@@ -91,15 +93,15 @@ The app never downloads an embedding model. Drop a `.gguf` file into the `models
 
 Five views, keyboard-first:
 
-- **Search** (home): a large search bar, a filter row, and results as cards with title, snippet, score, collection, and source path. Jump in from anywhere with ⌘K / Ctrl K.
-- **Library**: every collection with its sources and chunk counts; expand one to list its files.
+- **Search** (home): a large search bar, a filter row, and results as cards with title, snippet, rank, collection, and source path. Expand a card to read the whole passage, open the file, or reveal it in the file manager. A small toggle switches each result between its rank (#1) and the blended score (%). Jump in from anywhere with ⌘K / Ctrl K.
+- **Library**: every collection with its file and chunk counts and the last time it was indexed; expand one to list its files.
 - **Browse**: a file tree of collections, files, and chunks, with a preview pane.
-- **Index**: trigger indexing per collection or all at once, with progress.
+- **Index**: run "Index new" (only changed files) or "Re-index all" (re-embed everything) per collection, or index all collections at once, with live progress.
 - **Settings**: sources, model, chunking, search defaults, auto-reindex, and start-on-login.
 
 The sidebar shows the model state: idle, loaded, or failed. If the model file is missing or corrupt, vector search falls back to full-text search, so exact-word matches still work.
 
-Files you delete get pruned automatically, so results don't go stale. Auto-reindex, if enabled, re-indexes everything on a timer. Start-on-login launches the app with your session.
+Files you delete get pruned automatically, so results don't go stale. Auto-reindex, if enabled, re-indexes everything on a timer. Start-on-login launches the app with your session. The status strip shows when the library was last indexed; when auto-reindex is off and that date is more than a day old, Search quietly suggests a re-index.
 
 ## How search works
 
