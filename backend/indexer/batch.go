@@ -28,10 +28,9 @@ type indexItem struct {
 
 // itemBatch is a group of items whose chunks are embedded in one request.
 type itemBatch struct {
-	items   []*indexItem
-	texts   []string    // all chunk texts, item then chunk order
-	vecs    [][]float32 // filled by the embedding step
-	dropped int         // items removed by the individual-retry fallback
+	items []*indexItem
+	texts []string    // all chunk texts, item then chunk order
+	vecs  [][]float32 // filled by the embedding step; a nil entry = unembeddable chunk
 }
 
 // itemFunc returns the item at index i, or nil to skip it (unchanged, or
@@ -64,22 +63,37 @@ func indexItemsBatched(
 	indexed := 0
 
 	for {
-		// Check cancellation between batches: SQLite writes aren't preemptable
-		// mid-statement, so batch boundaries are the coarsest safe abort point.
 		if ctx != nil && ctx.Err() != nil {
 			return
 		}
-		batch := b.nextBatch()
+		batch := b.nextBatch(ctx)
 		if batch == nil {
 			return
 		}
 
-		vecs, err := embedder.EmbedBatch(batch.texts)
-		if err != nil {
-			embedItemsIndividually(batch, embedder)
-			vecs = batch.vecs
-		} else {
-			batch.vecs = vecs
+		// Embed the batch's texts in bounded slices. A single EmbedBatch over
+		// the whole batch is one blocking llama.cpp call that can run for
+		// minutes on CPU (a large batch, or one huge document with thousands
+		// of chunks), during which a cancel would be ignored. Slicing gives a
+		// cancel checkpoint every embedSliceCap texts with no throughput loss:
+		// llama.cpp already batches internally by tokens and parallel
+		// sequences, so the total work is identical either way.
+		batch.vecs = make([][]float32, 0, len(batch.texts))
+		for start := 0; start < len(batch.texts); start += embedSliceCap {
+			if ctx != nil && ctx.Err() != nil {
+				return
+			}
+			end := start + embedSliceCap
+			if end > len(batch.texts) {
+				end = len(batch.texts)
+			}
+			sliceVecs, err := embedder.EmbedBatch(batch.texts[start:end])
+			if err != nil {
+				// The slice failed as a batch — retry its texts one at a time
+				// so a single unembeddable chunk only costs itself.
+				sliceVecs = embedTextsIndividually(embedder, batch.texts[start:end])
+			}
+			batch.vecs = append(batch.vecs, sliceVecs...)
 		}
 
 		// Progress fires once per successfully indexed file so the frontend can
@@ -93,39 +107,32 @@ func indexItemsBatched(
 	}
 }
 
-// embedItemsIndividually retries a failed batch one item at a time, so a
-// single unembeddable item costs only itself.
-func embedItemsIndividually(b *itemBatch, embedder Embedder) {
-	slog.Warn("embedding batch failed, retrying items individually",
-		"items", len(b.items))
+// embedSliceCap bounds how many chunk texts go into one EmbedBatch call.
+// llama.cpp already processes a call's texts in parallel rounds of n_seq_max,
+// so splitting a big batch into slices of this size does not change the total
+// work — it only adds a cancellation checkpoint between slices, so a cancel
+// lands within embedSliceCap chunks (~a few seconds on CPU) instead of after
+// the whole batch.
+const embedSliceCap = 8
 
-	kept := make([]*indexItem, 0, len(b.items))
-	texts := make([]string, 0, len(b.texts))
-	vecs := make([][]float32, 0, len(b.texts))
-	var failed int
+// embedTextsIndividually retries one slice of a batch's texts one at a time,
+// so a single unembeddable chunk only costs itself. Returns vectors aligned
+// with texts; entries that still fail are nil, and writeItemBatch drops the
+// whole item those chunks belong to (an item can't be stored partially).
+func embedTextsIndividually(embedder Embedder, texts []string) [][]float32 {
+	slog.Warn("embedding slice failed, retrying texts individually",
+		"texts", len(texts))
 
-	for _, item := range b.items {
-		itemTexts := make([]string, len(item.Chunks))
-		for i, c := range item.Chunks {
-			itemTexts[i] = c.Text
-		}
-
-		itemVecs, err := embedder.EmbedBatch(itemTexts)
-		if err != nil || len(itemVecs) != len(itemTexts) {
-			failed++
-			if failed <= 5 {
-				slog.Warn("skipping item that cannot be embedded",
-					"type", item.SourceType, "path", item.SourcePath,
-					"chunks", len(item.Chunks), "err", err)
-			}
+	out := make([][]float32, len(texts))
+	for i, t := range texts {
+		v, err := embedder.EmbedBatch([]string{t})
+		if err != nil || len(v) != 1 {
+			slog.Warn("skipping chunk that cannot be embedded", "err", err)
 			continue
 		}
-		kept = append(kept, item)
-		texts = append(texts, itemTexts...)
-		vecs = append(vecs, itemVecs...)
+		out[i] = v[0]
 	}
-
-	b.items, b.texts, b.vecs, b.dropped = kept, texts, vecs, failed
+	return out
 }
 
 // itemBatcher walks items in order, grouping them into batches of roughly
@@ -138,8 +145,10 @@ type itemBatcher struct {
 	skipped int // items the itemFunc declined, or that had no usable text
 }
 
-// nextBatch returns the next batch, or nil once the items are exhausted.
-func (b *itemBatcher) nextBatch() *itemBatch {
+// nextBatch returns the next batch, or nil once the items are exhausted or
+// the run is cancelled mid-build (parsing items isn't preemptable, so the
+// loop checks cancellation between items).
+func (b *itemBatcher) nextBatch(ctx context.Context) *itemBatch {
 	target := b.cfg.EmbeddingBatchSize
 	if target < 1 {
 		target = 1
@@ -147,6 +156,9 @@ func (b *itemBatcher) nextBatch() *itemBatch {
 
 	batch := &itemBatch{}
 	for b.next < b.total {
+		if ctx != nil && ctx.Err() != nil {
+			return nil
+		}
 		item := b.itemAt(b.next)
 		b.next++
 
@@ -179,18 +191,21 @@ func hasContent(chunks []chunker.Chunk) bool {
 	return false
 }
 
-// writeItemBatch stores an embedded batch, attributing failures per item so
-// one bad item does not sink the rest.
+// hasNilVec reports whether any embedding in vecs is nil (a chunk that could
+// not be embedded).
+func hasNilVec(vecs [][]float32) bool {
+	for _, v := range vecs {
+		if v == nil {
+			return true
+		}
+	}
+	return false
+}
+
 // writeItemBatch stores an embedded batch, attributing failures per item so
 // one bad item does not sink the rest. It returns the titles of the items
 // that were successfully stored, so the caller can emit per-file progress.
 func writeItemBatch(conn *sql.DB, collectionID int64, b *itemBatch, result *IndexResult, preCleared bool) []string {
-	if b.dropped > 0 {
-		result.Errors += b.dropped
-		result.ErrorMessages = append(result.ErrorMessages,
-			fmt.Sprintf("%d item(s) could not be embedded and were skipped", b.dropped))
-	}
-
 	// Offsets into b.vecs are only meaningful if one vector came back per text.
 	if len(b.vecs) != len(b.texts) {
 		msg := fmt.Sprintf("embedding count mismatch: got %d vectors for %d chunks", len(b.vecs), len(b.texts))
@@ -209,6 +224,19 @@ func writeItemBatch(conn *sql.DB, collectionID int64, b *itemBatch, result *Inde
 	for _, item := range b.items {
 		vecs := b.vecs[offset : offset+len(item.Chunks)]
 		offset += len(item.Chunks)
+
+		// A nil vector means one of the item's chunks couldn't be embedded.
+		// An item can only be stored whole (storeItem writes all its chunks'
+		// vectors), so a partially-embedded item is dropped entirely.
+		if hasNilVec(vecs) {
+			result.Errors++
+			if result.Errors <= 10 {
+				msg := fmt.Sprintf("item %s has unembeddable chunk(s), skipping", item.SourcePath)
+				slog.Warn(msg)
+				result.ErrorMessages = append(result.ErrorMessages, msg)
+			}
+			continue
+		}
 
 		if err := storeItem(conn, collectionID, item, vecs); err != nil {
 			result.Errors++

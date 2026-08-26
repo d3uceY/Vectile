@@ -45,9 +45,123 @@ const stubPlugin = {
   },
 };
 
+// The stub middleware only answers request/response calls; it can't push the
+// indexing events the real backend emits. This injected client script makes
+// the Index page honest in the browser: it watches the Wails runtime POSTs
+// for the index / cancel method IDs and drives a fake run — indexing:file
+// ticks ending in indexing:complete / indexing:all-done, or
+// indexing:cancelled when Cancel is hit. Screenshots don't run this server,
+// and the simulation only starts on a real click, so it never fires during
+// captures.
+const indexSimPlugin = {
+  name: "vectile-index-sim",
+  transformIndexHtml() {
+    return [
+      {
+        tag: "script",
+        attrs: { type: "module" },
+        children: `(() => {
+  const INDEX_COL = 180963702;
+  const INDEX_ALL = 2589092493;
+  const CANCEL = 4016222948;
+
+  let sim = null;
+
+  const boot = () => {
+    if (!(window._wails && window._wails.dispatchWailsEvent)) {
+      setTimeout(boot, 20);
+      return;
+    }
+    const emit = (name, data) => window._wails.dispatchWailsEvent({ name, data });
+
+    const stop = () => { if (sim) { clearTimeout(sim.timer); sim = null; } };
+
+    const start = (all, collection) => {
+      stop();
+      sim = {
+        // Same order as the real backend's configuredCollections: obsidian,
+        // calibre, then repos, then projects.
+        all,
+        names: all ? ["obsidian", "calibre", "vectile", "field-notes"] : [collection || "notes"],
+        colIdx: 0,
+        collection: all ? "obsidian" : collection || "notes",
+        total: 60,
+        indexed: 0,
+      };
+      tick();
+    };
+
+    const tick = () => {
+      if (!sim) return;
+      if (sim.indexed >= sim.total) {
+        emit("indexing:complete", {
+          collection: sim.collection,
+          indexed: sim.indexed,
+          skipped: 0,
+          errors: 0,
+          messages: [],
+        });
+        sim.colIdx++;
+        if (sim.all && sim.colIdx < sim.names.length) {
+          sim.collection = sim.names[sim.colIdx];
+          sim.indexed = 0;
+          sim.timer = setTimeout(tick, 80);
+          return;
+        }
+        if (sim.all) emit("indexing:all-done", null);
+        sim = null;
+        return;
+      }
+      sim.indexed++;
+      emit("indexing:file", {
+        collection: sim.collection,
+        file: sim.collection + "/doc-" + sim.indexed + ".md",
+        indexed: sim.indexed,
+        total: sim.total,
+      });
+      sim.timer = setTimeout(tick, 30);
+    };
+
+    const cancel = () => {
+      if (!sim) return;
+      const { all, collection, indexed } = sim;
+      stop();
+      emit("indexing:cancelled", { collection, indexed, skipped: 0, errors: 0 });
+      if (all) emit("indexing:all-done", null);
+    };
+
+    // The runtime calls fetch(url, ...) with a URL object, so coerce to a
+    // string before matching.
+    const origFetch = window.fetch.bind(window);
+    window.fetch = async (url, opts) => {
+      try {
+        if (
+          String(url).indexOf("/wails/runtime") !== -1 &&
+          opts &&
+          opts.method === "POST"
+        ) {
+          const body = JSON.parse(opts.body || "{}");
+          const args = body && body.args;
+          const mid = args && args.methodID;
+          if (mid === INDEX_COL) start(false, args.args && args.args[0]);
+          else if (mid === INDEX_ALL) start(true);
+          else if (mid === CANCEL) cancel();
+        }
+      } catch (_) {}
+      return origFetch(url, opts);
+    };
+  };
+
+  boot();
+})();`,
+      },
+    ];
+  },
+};
+
 process.chdir(frontendRoot);
 const server = await createServer({
-  plugins: [stubPlugin],
+  plugins: [stubPlugin, indexSimPlugin],
   server: { port: 9255, strictPort: false },
 });
 

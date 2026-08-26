@@ -21,6 +21,9 @@ const M = {
   DeleteSource: 2650919656,
   DeleteCollection: 3393632225,
   GetIndexingState: 148853163,
+  IndexCollection: 180963702,
+  IndexAll: 2589092493,
+  CancelIndexing: 4016222948,
   ListModels: 4184755701,
   ImportModel: 3637578651,
   SetActiveModel: 859586252,
@@ -265,6 +268,14 @@ export async function stub(request) {
       // The screenshot stub is idle; the real backend reports an active run so
       // a freshly loaded frontend can rebuild the indexing UI after a reload.
       return { body: { active: false, all: false, collections: {} } };
+    // Index runs return a bool (started or already-running). The dev-stub
+    // simulates the indexing events client-side (see dev-stub.mjs), so the
+    // middleware only needs to answer the boolean; screenshots never click
+    // these buttons.
+    case M.IndexCollection:
+    case M.IndexAll:
+    case M.CancelIndexing:
+      return { body: true };
     case M.ListModels:
       return { body: models };
     case M.ImportModel: {
