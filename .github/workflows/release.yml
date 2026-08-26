@@ -80,13 +80,23 @@ jobs:
         shell: pwsh
         run: |
           choco install mingw -y --no-progress
-          # Find the mingw bin dir wherever choco put it (versioned path varies).
-          $gcc = Get-ChildItem "C:\ProgramData\chocolatey\lib\mingw" -Recurse -Filter gcc.exe -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $gcc) { throw "gcc.exe not found after MinGW installation" }
-          $mingwBin = $gcc.DirectoryName
+          # The choco mingw package installs to C:\ProgramData\mingw64 and adds
+          # its bin dir to the machine PATH. It MOVES its lib\mingw\tools\install
+          # dir there, so never search under lib\mingw. Reload the machine PATH,
+          # then fall back to a direct search if the refresh misses.
+          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+          refreshenv
+          $cmd = Get-Command gcc -ErrorAction SilentlyContinue
+          if ($cmd) {
+            $mingwBin = Split-Path $cmd.Source
+          } else {
+            $gcc = Get-ChildItem (Join-Path $env:ProgramData "mingw64") -Recurse -Filter gcc.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $gcc) { throw "gcc.exe not found after MinGW installation" }
+            $mingwBin = $gcc.DirectoryName
+          }
           Add-Content -Path $env:GITHUB_PATH -Value $mingwBin
           $env:PATH = "$mingwBin;$env:PATH"
-          Write-Host "Using gcc at $((Get-Command gcc).Source)"
+          Write-Host "Using gcc at $mingwBin"
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
