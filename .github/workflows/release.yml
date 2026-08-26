@@ -79,24 +79,33 @@ jobs:
       - name: Install MinGW-w64 (for the CGO llama.cpp link)
         shell: pwsh
         run: |
-          choco install mingw -y --no-progress
-          # The choco mingw package installs to C:\ProgramData\mingw64 and adds
-          # its bin dir to the machine PATH. It MOVES its lib\mingw\tools\install
-          # dir there, so never search under lib\mingw. Reload the machine PATH,
-          # then fall back to a direct search if the refresh misses.
-          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
-          refreshenv
-          $cmd = Get-Command gcc -ErrorAction SilentlyContinue
-          if ($cmd) {
-            $mingwBin = Split-Path $cmd.Source
-          } else {
-            $gcc = Get-ChildItem (Join-Path $env:ProgramData "mingw64") -Recurse -Filter gcc.exe -ErrorAction SilentlyContinue | Select-Object -First 1
-            if (-not $gcc) { throw "gcc.exe not found after MinGW installation" }
-            $mingwBin = $gcc.DirectoryName
-          }
+          # Pin the choco mingw version: the committed llama-go archives were
+          # built with MinGW-w64 GCC 16.1.0 (WinLibs UCRT/posix/seh), and the
+          # choco mingw 16.1.0 package installs that same GCC 16.1.0 toolchain.
+          # The runner ALSO ships a preinstalled MinGW at C:\mingw64 (GCC
+          # 15.2.0) which is on PATH and would win over the choco install; its
+          # libstdc++ ABI mismatches the archives (undefined std::__get_once_*),
+          # so resolve the choco-installed GCC explicitly and pin CC/CXX to it.
+          choco install mingw --version=16.1.0 -y --no-progress
+
+          # The mingw package installs to C:\ProgramData\mingw64 (it MOVES its
+          # lib\mingw\tools\install dir there and adds mingw64\bin to the machine
+          # PATH). Search that root only, NOT via Get-Command gcc (that would
+          # find the runner's preinstalled 15.2.0 first).
+          $gcc = Get-ChildItem (Join-Path $env:ProgramData "mingw64") -Recurse -Filter gcc.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $gcc) { throw "gcc.exe not found after MinGW installation" }
+          $mingwBin = $gcc.DirectoryName
+
+          $ver = (& (Join-Path $mingwBin "gcc.exe") --version | Select-Object -First 1)
+          if ($ver -notmatch '16\.') { throw "Expected GCC 16.x from choco mingw 16.1.0, got: $ver" }
+
           Add-Content -Path $env:GITHUB_PATH -Value $mingwBin
-          $env:PATH = "$mingwBin;$env:PATH"
-          Write-Host "Using gcc at $mingwBin"
+          # Pin CC/CXX for the go build step so cgo compiles AND links with the
+          # same GCC 16.1.0 the archives were built with (forward slashes for Go).
+          $fwd = $mingwBin.Replace('\', '/')
+          Add-Content -Path $env:GITHUB_ENV -Value "CC=$fwd/gcc.exe"
+          Add-Content -Path $env:GITHUB_ENV -Value "CXX=$fwd/g++.exe"
+          Write-Host "Using $ver at $mingwBin (CC/CXX pinned)"
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
