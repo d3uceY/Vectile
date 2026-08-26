@@ -12,7 +12,8 @@ import (
 	"vectile/backend/embeddings"
 )
 
-// Version is injected at build time via -ldflags; defaults to "dev".
+// Version is the app version shown in the UI; main() copies it from the
+// build-time stamped main.Version (via -ldflags "-X main.Version=..."). Defaults to "dev".
 var Version = "dev"
 
 // Core holds the shared runtime state for all services.
