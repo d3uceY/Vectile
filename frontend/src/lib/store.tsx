@@ -39,8 +39,60 @@ const defaultFilters = (topK = DEFAULT_TOP_K): SearchFilters => ({
 });
 
 export function createAppStore() {
-  const [view, setView] = createSignal<ViewId>("search");
+  const [view, setViewRaw] = createSignal<ViewId>("search");
 
+  // Settings leave-guard: a navigation away from Settings that's being held
+  // because the settings draft has unsaved edits. SettingsView shows a dialog
+  // ("Save settings / Keep editing / Leave without saving") before the switch
+  // actually happens.
+  const [pendingLeave, setPendingLeave] = createSignal<ViewId | null>(null);
+
+  // The Settings form draft + dirty flag. The draft lives HERE (not in the
+  // Settings view) so unsaved edits survive switching views — leaving keeps
+  // them in memory, and the leave guard above refuses to navigate away while
+  // dirty until the user saves, keeps editing, or discards.
+  const [settingsDraft, setSettingsDraftRaw] = createSignal<AppConfig | null>(null);
+  const [settingsDirty, setSettingsDirty] = createSignal(false);
+
+  // Every mutation of the draft through the public setter is a user edit, so
+  // it flips the dirty flag. Non-user writes (initializing from the loaded
+  // config, discarding) use replaceSettingsDraft instead.
+  const setSettingsDraft = (
+    v: AppConfig | null | ((d: AppConfig | null) => AppConfig | null),
+  ) => {
+    setSettingsDraftRaw((d) =>
+      typeof v === "function" ? (v as (x: AppConfig | null) => AppConfig | null)(d) : v,
+    );
+    setSettingsDirty(true);
+  };
+  const replaceSettingsDraft = (v: AppConfig | null) => setSettingsDraftRaw(v);
+
+  // Logical CPUs available — the ceiling for the model's CPU-threads slider.
+  const [cpuCount, setCpuCount] = createSignal(0);
+
+  // Navigate to a view. While the settings draft is dirty, leaving Settings is
+  // held until the user resolves it through the leave dialog.
+  const setView = (next: ViewId) => {
+    if (next === view()) return;
+    if (view() === "settings" && settingsDirty()) {
+      setPendingLeave(next);
+      return;
+    }
+    setViewRaw(next);
+  };
+  const cancelLeave = () => setPendingLeave(null);
+  // Resolve a held navigation. discard=true drops the unsaved draft first; the
+  // default keeps it in memory (dirty stays true, so revisiting Settings shows
+  // the edits still there).
+  const confirmLeave = (opts?: { discard?: boolean }) => {
+    const next = pendingLeave();
+    if (opts?.discard) {
+      replaceSettingsDraft(null);
+      setSettingsDirty(false);
+    }
+    setPendingLeave(null);
+    if (next) setViewRaw(next);
+  };
 
   const [modelState, setModelState] = createSignal<ModelState>("idle");
   const [modelName, setModelName] = createSignal("bge-m3");
@@ -200,11 +252,27 @@ export function createAppStore() {
     }
   };
 
-  const saveConfig = async (cfg: AppConfig) => {
-    await api.setConfig(cfg);
-    setConfig(cfg);
+  // Persist the settings draft to the backend and mark it clean. Called from
+  // the Settings view's own Save button and from the leave dialog.
+  const saveSettings = async () => {
+    const d = settingsDraft();
+    if (!d) return;
+    await api.setConfig(d);
+    setConfig(d);
+    setSettingsDirty(false);
     await refresh();
     pushToast("Settings saved", "success");
+  };
+
+  // Logical CPU count for the model's thread slider (0 until the backend
+  // answers; the UI falls back to a safe default meanwhile).
+  const loadCPUCount = async () => {
+    try {
+      const n = await api.getCPUCount();
+      setCpuCount(typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 0);
+    } catch {
+      /* backend not ready yet */
+    }
   };
 
   // Model library: refresh the installed-models list from the backend.
@@ -479,6 +547,7 @@ export function createAppStore() {
     void loadConfig();
     void loadModels();
     void hydrateIndexing();
+    void loadCPUCount();
   });
   onCleanup(() => {
     offProgress();
@@ -503,7 +572,15 @@ export function createAppStore() {
     setActiveModel,
     deleteModel,
     updateModelSettings,
-    saveConfig,
+    settingsDraft,
+    settingsDirty,
+    setSettingsDraft,
+    replaceSettingsDraft,
+    saveSettings,
+    pendingLeave,
+    cancelLeave,
+    confirmLeave,
+    cpuCount,
     loadConfig,
     sources,
     documents,

@@ -11,6 +11,7 @@
 
 const M = {
   GetStatus: 1831479589,
+  GetCPUCount: 899550166,
   GetVersion: 712846061,
   ListCollections: 1339457758,
   ListSources: 553118937,
@@ -232,6 +233,9 @@ export async function stub(request) {
   switch (methodID) {
     case M.GetStatus:
       return { body: status };
+    case M.GetCPUCount:
+      // Number of logical CPUs — the Settings thread slider's ceiling.
+      return { body: 8 };
     case M.GetVersion:
       // The dev-stub middleware sends string bodies raw, so JSON-encode the
       // value — the runtime's res.json() needs `"v0.1.0"` (quoted).

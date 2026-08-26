@@ -40,6 +40,11 @@ export async function getVersion(): Promise<string> {
   return AppService.GetVersion() as unknown as string;
 }
 
+/** Number of logical CPUs available — the ceiling for the model's thread slider. */
+export async function getCPUCount(): Promise<number> {
+  return AppService.GetCPUCount() as unknown as number;
+}
+
 export async function listCollections(): Promise<Collection[]> {
   return AppService.ListCollections() as unknown as Collection[];
 }

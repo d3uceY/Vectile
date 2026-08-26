@@ -147,3 +147,18 @@ export const LeafIcon = (p: IconProps) => (
     <path d="M4 20c4-8 9-12 13-14" />
   </Icon>
 );
+
+export const CodeIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m8 8-4 4 4 4" />
+    <path d="m16 8 4 4-4 4" />
+    <path d="m13.5 5-3 14" />
+  </Icon>
+);
+
+export const SlashIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m5.5 5.5 13 13" />
+  </Icon>
+);

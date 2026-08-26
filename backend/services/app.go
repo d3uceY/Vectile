@@ -23,6 +23,11 @@ func (s *AppService) GetVersion() string { return Version }
 // GetPlatform returns the OS ("windows", "darwin", "linux").
 func (s *AppService) GetPlatform() string { return runtime.GOOS }
 
+// GetCPUCount returns the number of logical CPUs available to the process —
+// the ceiling the Settings UI uses for the model's CPU-threads slider
+// (0 = use all of them).
+func (s *AppService) GetCPUCount() int { return runtime.NumCPU() }
+
 // GetStatus returns the status summary: library stats + model state.
 func (s *AppService) GetStatus() Status {
 	var collections, sources, chunks int

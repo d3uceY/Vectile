@@ -3,7 +3,7 @@ import { useAppStore } from "../../lib/store";
 import { importModel, pickFolder, pickModelFile } from "../../lib/api";
 import type { AppConfig, GUIConfig, ModelInfo, SearchDefaults } from "../../lib/types";
 import { Button, ConfirmDialog, InfoTip, Select, StatusPill, Toggle, ViewHeading } from "../ui/primitives";
-import { CloseIcon, FolderOpenIcon } from "../ui/icons";
+import { CloseIcon, CodeIcon, FileIcon, FolderOpenIcon, LibraryIcon, SlashIcon } from "../ui/icons";
 
 /* ---- hard bounds for numeric settings ----
    Every numeric field is clamped to these ranges on load and on change, and
@@ -115,6 +115,10 @@ function RangeField(props: {
   min?: number;
   max?: number;
   step?: number;
+  /** Render the readout (e.g. "auto" at 0 instead of "0.00"). */
+  format?: (n: number) => string;
+  /** A short suffix after the readout (e.g. "of 16"). */
+  suffix?: string;
 }) {
   const uid = createUniqueId();
   const min = props.min ?? 0;
@@ -141,14 +145,94 @@ function RangeField(props: {
           style={{ "--fill": `${pct()}%` } as JSX.CSSProperties}
         />
         <span class="data w-9 shrink-0 text-right text-muted tabular-nums">
-          {props.value.toFixed(2)}
+          {props.format ? props.format(props.value) : props.value.toFixed(2)}
         </span>
+        {props.suffix && (
+          <span class="shrink-0 text-[12px] text-faint tabular-nums">{props.suffix}</span>
+        )}
       </span>
     </div>
   );
 }
 
+/* A single path list rendered as a notebook ledger: one hairline-bordered box,
+   flat rows divided by rules, and an add row beneath. Empty lists show honest
+   guidance instead of a blank box. */
 function PathList(props: {
+  values: string[];
+  onAdd: (v: string) => void;
+  onRemove: (v: string) => void;
+  title?: string;
+  placeholder?: string;
+  empty?: string;
+}) {
+  const [input, setInput] = createSignal("");
+
+  const addInput = () => {
+    if (input().trim()) {
+      props.onAdd(input().trim());
+      setInput("");
+    }
+  };
+
+  const browse = async () => {
+    const dir = await pickFolder(props.title);
+    if (dir) props.onAdd(dir);
+  };
+
+  return (
+    <div class="flex flex-col gap-2">
+      {props.values.length === 0 ? (
+        <p class="rounded-control border border-dashed border-line bg-surface/40 px-3 py-2.5 text-[13px] leading-5 text-faint">
+          {props.empty ?? "Nothing here yet — add a path below."}
+        </p>
+      ) : (
+        <ul class="divide-y divide-line overflow-hidden rounded-control border border-line bg-paper">
+          <For each={props.values}>
+            {(v) => (
+              <li class="group flex items-center gap-2 px-3 py-1.5">
+                <span class="data min-w-0 flex-1 truncate font-mono text-[12.5px] text-muted" title={v}>
+                  {v}
+                </span>
+                <button
+                  class="shrink-0 text-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 hover:text-danger"
+                  onClick={() => props.onRemove(v)}
+                  aria-label={`Remove ${v}`}
+                >
+                  <CloseIcon size={14} />
+                </button>
+              </li>
+            )}
+          </For>
+        </ul>
+      )}
+      <div class="flex gap-2">
+        <input
+          value={input()}
+          onInput={(e) => setInput(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") addInput();
+          }}
+          placeholder={props.placeholder ?? "/absolute/path"}
+          class="h-8 min-w-0 flex-1 rounded-control border border-line bg-paper px-3 text-[13px] outline-none focus:border-leaf"
+          spellcheck={false}
+        />
+        <Button size="sm" variant="outline" onClick={() => void browse()} aria-label="Browse for folder">
+          <FolderOpenIcon size={15} />
+          Browse
+        </Button>
+        <Button size="sm" onClick={addInput}>
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* Compact tag list for the "excluded folders" sub-setting. Paths render as
+   removable chips rather than a full ledger, so it reads as a lighter sub-list
+   nested under Obsidian vaults instead of a second list box. */
+function ChipList(props: {
   values: string[];
   onAdd: (v: string) => void;
   onRemove: (v: string) => void;
@@ -169,36 +253,41 @@ function PathList(props: {
   };
 
   return (
-    <div class="flex flex-col gap-1.5">
-      <ul class="flex flex-col gap-1">
-        <For each={props.values}>
-          {(v) => (
-            <li class="flex items-center gap-2 rounded-control border border-line bg-paper px-3 py-1.5">
-              <span class="data flex-1 truncate text-muted" title={v}>{v}</span>
-              <button
-                class="shrink-0 text-faint transition-colors hover:text-danger"
-                onClick={() => props.onRemove(v)}
-                aria-label={`Remove ${v}`}
-              >
-                <CloseIcon size={14} />
-              </button>
-            </li>
-          )}
-        </For>
-      </ul>
-      <div class="flex gap-2">
+    <div class="flex flex-col gap-2">
+      {props.values.length === 0 ? (
+        <p class="text-[12.5px] leading-4 text-faint">None — every folder inside a vault is indexed.</p>
+      ) : (
+        <ul class="flex flex-wrap gap-1.5">
+          <For each={props.values}>
+            {(v) => (
+              <li class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line bg-paper px-2.5 py-1">
+                <span class="min-w-0 truncate font-mono text-[12px] text-ink-soft" title={v}>
+                  {v}
+                </span>
+                <button
+                  class="shrink-0 text-faint transition-colors hover:text-danger"
+                  onClick={() => props.onRemove(v)}
+                  aria-label={`Remove ${v}`}
+                >
+                  <CloseIcon size={12} />
+                </button>
+              </li>
+            )}
+          </For>
+        </ul>
+      )}
+      <div class="flex items-center gap-2">
         <input
           value={input()}
           onInput={(e) => setInput(e.currentTarget.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") addInput();
           }}
-          placeholder="/absolute/path"
-          class="h-8 flex-1 rounded-control border border-line bg-paper px-3 text-[13px] outline-none focus:border-leaf"
+          placeholder="folder name, e.g. .trash"
+          class="h-7 min-w-0 flex-1 rounded-control border border-line bg-paper px-2.5 text-[12.5px] outline-none focus:border-leaf"
           spellcheck={false}
         />
-        <Button size="sm" variant="outline" onClick={() => void browse()} aria-label="Browse for folder">
-          <FolderOpenIcon size={15} />
+        <Button size="sm" variant="outline" onClick={() => void browse()}>
           Browse
         </Button>
         <Button size="sm" onClick={addInput}>
@@ -209,6 +298,90 @@ function PathList(props: {
   );
 }
 
+/* One group inside a GroupList ledger: a name header (with path count and a
+   remove button) and its own list of paths plus a compact add row. Rendered as
+   its own component so each group's add-input keeps its own state. */
+function GroupItem(props: {
+  name: string;
+  paths: string[];
+  onAddPath: (name: string, v: string) => void;
+  onRemovePath: (name: string, v: string) => void;
+  onRemoveGroup: (name: string) => void;
+  title?: string;
+}) {
+  const [input, setInput] = createSignal("");
+
+  const addInput = () => {
+    if (input().trim()) {
+      props.onAddPath(props.name, input().trim());
+      setInput("");
+    }
+  };
+
+  const browse = async () => {
+    const dir = await pickFolder(props.title);
+    if (dir) props.onAddPath(props.name, dir);
+  };
+
+  return (
+    <li class="px-3 py-3">
+      <div class="mb-2 flex items-center gap-2">
+        <span class="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{props.name}</span>
+        <span class="data shrink-0 rounded-full border border-line bg-surface px-2 py-0.5 font-mono text-[11px] text-muted">
+          {props.paths.length} {props.paths.length === 1 ? "path" : "paths"}
+        </span>
+        <button
+          class="shrink-0 text-faint transition-colors hover:text-danger"
+          onClick={() => props.onRemoveGroup(props.name)}
+          aria-label={`Remove ${props.name}`}
+        >
+          <CloseIcon size={14} />
+        </button>
+      </div>
+      {props.paths.length === 0 ? (
+        <p class="text-[12.5px] leading-4 text-faint">No paths yet.</p>
+      ) : (
+        <ul class="divide-y divide-line/60">
+          <For each={props.paths}>
+            {(v) => (
+              <li class="group flex items-center gap-2 py-1">
+                <span class="data min-w-0 flex-1 truncate font-mono text-[12.5px] text-muted" title={v}>
+                  {v}
+                </span>
+                <button
+                  class="shrink-0 text-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100 hover:text-danger"
+                  onClick={() => props.onRemovePath(props.name, v)}
+                  aria-label={`Remove ${v}`}
+                >
+                  <CloseIcon size={13} />
+                </button>
+              </li>
+            )}
+          </For>
+        </ul>
+      )}
+      <div class="mt-2 flex items-center gap-2">
+        <input
+          value={input()}
+          onInput={(e) => setInput(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") addInput();
+          }}
+          placeholder="/absolute/path"
+          class="h-7 min-w-0 flex-1 rounded-control border border-line bg-paper px-2.5 text-[12.5px] outline-none focus:border-leaf"
+          spellcheck={false}
+        />
+        <Button size="sm" variant="outline" onClick={() => void browse()}>
+          Browse
+        </Button>
+        <Button size="sm" onClick={addInput}>
+          Add
+        </Button>
+      </div>
+    </li>
+  );
+}
+
 function GroupList(props: {
   groups: Record<string, string[]>;
   onAddPath: (name: string, v: string) => void;
@@ -216,57 +389,94 @@ function GroupList(props: {
   onAddGroup: (name: string) => void;
   onRemoveGroup: (name: string) => void;
   title?: string;
+  empty?: string;
 }) {
   const [name, setName] = createSignal("");
+
+  const addGroup = () => {
+    if (name().trim()) {
+      props.onAddGroup(name().trim());
+      setName("");
+    }
+  };
+
+  const entries = () => Object.entries(props.groups);
+
   return (
-    <div class="space-y-3">
+    <div class="flex flex-col gap-2">
+      {entries().length === 0 ? (
+        <p class="rounded-control border border-dashed border-line bg-surface/40 px-3 py-2.5 text-[13px] leading-5 text-faint">
+          {props.empty ?? "No groups yet — create one below, then add its folders."}
+        </p>
+      ) : (
+        <ul class="divide-y divide-line overflow-hidden rounded-control border border-line bg-paper">
+          <For each={entries()}>
+            {([gname, paths]) => (
+              <GroupItem
+                name={gname}
+                paths={paths}
+                onAddPath={props.onAddPath}
+                onRemovePath={props.onRemovePath}
+                onRemoveGroup={props.onRemoveGroup}
+                title={props.title}
+              />
+            )}
+          </For>
+        </ul>
+      )}
       <div class="flex gap-2">
         <input
           value={name()}
           onInput={(e) => setName(e.currentTarget.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && name().trim()) {
-              props.onAddGroup(name().trim());
-              setName("");
-            }
+            if (e.key === "Enter") addGroup();
           }}
           placeholder="collection name…"
-          class="h-8 flex-1 rounded-control border border-line bg-paper px-3 text-[13px] outline-none focus:border-leaf"
+          class="h-8 min-w-0 flex-1 rounded-control border border-line bg-paper px-3 text-[13px] outline-none focus:border-leaf"
         />
-        <Button
-          size="sm"
-          onClick={() => {
-            if (name().trim()) {
-              props.onAddGroup(name().trim());
-              setName("");
-            }
-          }}
-        >
+        <Button size="sm" onClick={addGroup}>
           New group
         </Button>
       </div>
-      <For each={Object.entries(props.groups)}>
-        {([gname, paths]) => (
-          <div class="rounded-control border border-line bg-surface/40 p-3">
-            <div class="mb-2 flex items-center justify-between">
-              <span class="data font-medium text-ink">{gname}</span>
-              <button
-                class="text-faint transition-colors hover:text-danger"
-                onClick={() => props.onRemoveGroup(gname)}
-                aria-label={`Remove ${gname}`}
-              >
-                <CloseIcon size={14} />
-              </button>
-            </div>
-            <PathList
-              values={paths}
-              onAdd={(v) => props.onAddPath(gname, v)}
-              onRemove={(v) => props.onRemovePath(gname, v)}
-              title={props.title}
-            />
-          </div>
-        )}
-      </For>
+    </div>
+  );
+}
+
+/* Header row for one source kind inside the Sources section: an icon plate, the
+   name, an explanation tip, and a mono count. It sits above the ledger so each
+   source reads as an entry in the settings notebook rather than a separate card. */
+function SourceHeading(props: {
+  icon: JSX.Element;
+  title: string;
+  hint: string;
+  count: number;
+  unit: string;
+}) {
+  return (
+    <div class="flex items-center gap-2.5">
+      <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-surface text-leaf">
+        {props.icon}
+      </span>
+      <h4 class="text-[13.5px] font-semibold tracking-[-0.01em] text-ink">{props.title}</h4>
+      <InfoTip text={props.hint} />
+      <span class="data ml-auto shrink-0 rounded-full border border-line bg-surface px-2 py-0.5 font-mono text-[11px] text-muted">
+        {props.count} {props.count === 1 ? props.unit : `${props.unit}s`}
+      </span>
+    </div>
+  );
+}
+
+/* A sub-group of the Sources section (Documents / Code): a small heading on a
+   hairline rule, with a serif-italic note underneath. */
+function SourceGroup(props: { title: string; note: string; children: JSX.Element }) {
+  return (
+    <div>
+      <div class="mb-1.5 flex items-center gap-3">
+        <h3 class="text-[13px] font-semibold tracking-[-0.01em] text-ink-soft">{props.title}</h3>
+        <div class="h-px flex-1 bg-line" aria-hidden="true" />
+      </div>
+      <p class="note mb-4 text-[13px] leading-5 text-muted">{props.note}</p>
+      {props.children}
     </div>
   );
 }
@@ -331,20 +541,25 @@ const sanitizeConfig = (cfg: AppConfig): AppConfig => {
 
 export function SettingsView() {
   const store = useAppStore();
-  const [draft, setDraft] = createSignal<AppConfig | null>(null);
+
+  // The draft lives in the store (not here) so unsaved edits survive leaving
+  // the page — they're kept in memory, and the leave dialog below decides
+  // whether they get saved or dropped.
+  const draft = (): AppConfig | null => store.settingsDraft();
 
   // Initialize the draft once from the loaded config, clamping any out-of-range
-  // values a hand-edited config.json may have carried.
+  // values a hand-edited config.json may have carried. Runs again only when no
+  // draft is in memory (e.g. after the user discarded one).
   createEffect(() => {
     const c = store.config();
-    if (c && !draft()) setDraft(sanitizeConfig(cloneCfg(c)));
+    if (c && !store.settingsDraft()) store.replaceSettingsDraft(sanitizeConfig(cloneCfg(c)));
   });
 
   const setNumber = (
     k: "embedding_batch_size" | "chunk_size_tokens" | "chunk_overlap_tokens" | "git_history_in_months",
     n: number,
   ) =>
-    setDraft((d) => {
+    store.setSettingsDraft((d) => {
       if (!d) return d;
       if (k === "chunk_size_tokens") {
         // Shrinking the chunk size must pull overlap back below it.
@@ -361,24 +576,24 @@ export function SettingsView() {
     });
 
   const addPath = (k: "obsidian_vaults" | "obsidian_exclude_folders" | "calibre_libraries", v: string) =>
-    setDraft((d) => (d ? { ...d, [k]: [...d[k], v] } : d));
+    store.setSettingsDraft((d) => (d ? { ...d, [k]: [...d[k], v] } : d));
   const removePath = (k: "obsidian_vaults" | "obsidian_exclude_folders" | "calibre_libraries", v: string) =>
-    setDraft((d) => (d ? { ...d, [k]: d[k].filter((x) => x !== v) } : d));
+    store.setSettingsDraft((d) => (d ? { ...d, [k]: d[k].filter((x) => x !== v) } : d));
 
   const addGroupPath = (mapKey: "projects" | "repositories", name: string, v: string) =>
-    setDraft((d) =>
+    store.setSettingsDraft((d) =>
       d ? { ...d, [mapKey]: { ...d[mapKey], [name]: [...(d[mapKey][name] ?? []), v] } } : d,
     );
   const removeGroupPath = (mapKey: "projects" | "repositories", name: string, v: string) =>
-    setDraft((d) =>
+    store.setSettingsDraft((d) =>
       d
         ? { ...d, [mapKey]: { ...d[mapKey], [name]: (d[mapKey][name] ?? []).filter((x) => x !== v) } }
         : d,
     );
   const addGroup = (mapKey: "projects" | "repositories", name: string) =>
-    setDraft((d) => (d ? { ...d, [mapKey]: { ...d[mapKey], [name]: [] } } : d));
+    store.setSettingsDraft((d) => (d ? { ...d, [mapKey]: { ...d[mapKey], [name]: [] } } : d));
   const removeGroup = (mapKey: "projects" | "repositories", name: string) =>
-    setDraft((d) => {
+    store.setSettingsDraft((d) => {
       if (!d) return d;
       const m = { ...d[mapKey] };
       delete m[name];
@@ -386,13 +601,13 @@ export function SettingsView() {
     });
 
   const setSearch = (k: keyof SearchDefaults, n: number) =>
-    setDraft((d) => {
+    store.setSettingsDraft((d) => {
       if (!d) return d;
       const b = STATIC_BOUNDS[k];
       return { ...d, search_defaults: { ...d.search_defaults, [k]: clamp(n, b.min, b.max) } };
     });
   const setGui = (p: Partial<GUIConfig>) =>
-    setDraft((d) => {
+    store.setSettingsDraft((d) => {
       if (!d) return d;
       const gui = { ...d.gui, ...p };
       if (p.auto_reindex_interval_minutes !== undefined) {
@@ -403,14 +618,33 @@ export function SettingsView() {
     });
 
   const save = async () => {
-    const d = draft();
-    if (d) await store.saveConfig(d);
+    await store.saveSettings();
+  };
+
+  // Used by the leave dialog: persist the draft, then complete the held
+  // navigation (confirmLeave clears the dirty flag and switches the view).
+  const saveAndLeave = async () => {
+    await store.saveSettings();
+    store.confirmLeave();
   };
 
   /* ---- Model library (independent of the config draft) ---- */
 
   // The active model from the backend's installed-models list.
   const activeModel = (): ModelInfo | null => store.models().find((m) => m.isActive) ?? null;
+
+  // What the Active-model dropdown shows. Kept separate from activeModel() so a
+  // pending (dimension-changing) selection can be previewed in the dropdown but
+  // snaps back to the previous model if the user cancels the switch.
+  const [selModel, setSelModel] = createSignal("");
+  createEffect(() => {
+    const m = activeModel();
+    if (m) setSelModel(m.path);
+  });
+
+  // Total logical cores — the ceiling for the CPU-threads slider. Falls back to
+  // 64 until the backend answers (slow start / dev stub).
+  const cpuCount = (): number => (store.cpuCount() > 0 ? store.cpuCount() : 64);
 
   // Per-model settings form for the active model.
   const [modelCtx, setModelCtx] = createSignal(0);
@@ -433,8 +667,14 @@ export function SettingsView() {
 
   const switchModel = async (path: string) => {
     if (path === activeModel()?.path) return;
-    const r = await store.setActiveModel(path);
-    if (r.needsRebuild) setConfirmDim({ path, name: r.name });
+    setSelModel(path); // preview the pending choice in the dropdown
+    try {
+      const r = await store.setActiveModel(path);
+      if (r.needsRebuild) setConfirmDim({ path, name: r.name });
+      else setSelModel(activeModel()?.path ?? ""); // applied — resync from the store
+    } catch {
+      setSelModel(activeModel()?.path ?? ""); // rejected — revert the dropdown
+    }
   };
 
   const confirmDimSwitch = async () => {
@@ -444,6 +684,8 @@ export function SettingsView() {
     try {
       await store.setActiveModel(c.path, true);
       setConfirmDim(null);
+    } catch {
+      setSelModel(activeModel()?.path ?? ""); // failed — revert the dropdown
     } finally {
       setConfirmBusy(false);
     }
@@ -475,6 +717,15 @@ export function SettingsView() {
     <div class="relative flex h-full flex-col">
       <ViewHeading title="Settings" note="Model, chunking, search, and sources. Everything stays on this machine.">
         <Button onClick={() => void save()}>Save settings</Button>
+        <Show when={store.settingsDirty()}>
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full border border-leaf/30 bg-mint px-2 py-0.5 text-[11.5px] font-medium text-leaf-deep"
+            role="status"
+          >
+            <span class="h-1.5 w-1.5 rounded-full bg-leaf" aria-hidden="true" />
+            unsaved
+          </span>
+        </Show>
       </ViewHeading>
 
       <Show when={draft()} fallback={<p class="note text-muted">Loading settings…</p>}>
@@ -494,7 +745,7 @@ export function SettingsView() {
               <span class="text-[13.5px] text-ink-soft">Active model</span>
               <Select
                 aria-label="Active model"
-                value={activeModel()?.path ?? ""}
+                value={selModel()}
                 options={store.models().map((m) => ({ value: m.path, label: modelLabel(m) }))}
                 onChange={(e) => void switchModel(e.currentTarget.value)}
               />
@@ -535,14 +786,16 @@ export function SettingsView() {
                     max={STATIC_BOUNDS.embedding_batch_size.max}
                     step={STATIC_BOUNDS.embedding_batch_size.step}
                   />
-                  <NumField
+                  <RangeField
                     label="CPU threads"
                     value={modelThreads()}
                     onChange={setModelThreads}
-                    hint="0 = use all cores. Lower it if indexing starves the rest of the system."
+                    hint={`0 = auto, which uses all ${cpuCount()} logical cores. Drag to reserve some for the rest of the system — lower it if indexing starves other apps.`}
                     min={0}
-                    max={64}
+                    max={cpuCount()}
                     step={1}
+                    format={(n) => (n <= 0 ? "auto" : String(Math.round(n)))}
+                    suffix={`of ${cpuCount()}`}
                   />
                   <div class="mt-2 flex justify-end">
                     <Button size="sm" onClick={() => void saveModelSettings()}>
@@ -603,7 +856,10 @@ export function SettingsView() {
               }
               confirmLabel="Switch & re-index"
               busy={confirmBusy()}
-              onCancel={() => setConfirmDim(null)}
+              onCancel={() => {
+                setConfirmDim(null);
+                setSelModel(activeModel()?.path ?? ""); // keep the previous model
+              }}
               onConfirm={() => void confirmDimSwitch()}
             />
           </Section>
@@ -669,73 +925,107 @@ export function SettingsView() {
           </Section>
 
           <Section title="Sources" note="Folders are walked recursively. Code repositories discover nested git repos automatically.">
-            <div class="grid gap-6 md:grid-cols-2">
-              <div>
-                <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
-                  Obsidian vaults
-                  <InfoTip text="Point at an Obsidian vault and every markdown note in it gets indexed, subfolders included. Once it's in, you can search your notes by meaning as well as by keyword. Use the exclude list below to keep noisy folders out." />
-                </p>
-                <PathList
-                  values={draft()!.obsidian_vaults}
-                  onAdd={(v) => addPath("obsidian_vaults", v)}
-                  onRemove={(v) => removePath("obsidian_vaults", v)}
-                  title="Choose an Obsidian vault"
-                />
-              </div>
-              <div>
-                <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
-                  Obsidian exclude folders
-                  <InfoTip text="Folders listed here are skipped when vaults are indexed. Handy for hiding attachments, templates, .trash, or anything else you don't want showing up in search results." />
-                </p>
-                <PathList
-                  values={draft()!.obsidian_exclude_folders}
-                  onAdd={(v) => addPath("obsidian_exclude_folders", v)}
-                  onRemove={(v) => removePath("obsidian_exclude_folders", v)}
-                  title="Choose a folder to exclude"
-                />
-              </div>
-              <div>
-                <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
-                  Calibre libraries
-                  <InfoTip text="Point at a Calibre library and the app reads your book metadata and indexes the text of the formats it understands, so your books become searchable without opening them." />
-                </p>
-                <PathList
-                  values={draft()!.calibre_libraries}
-                  onAdd={(v) => addPath("calibre_libraries", v)}
-                  onRemove={(v) => removePath("calibre_libraries", v)}
-                  title="Choose a Calibre library"
-                />
-              </div>
-            </div>
-            <div class="grid gap-6 md:grid-cols-2">
-              <div>
-                <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
-                  Project folders
-                  <InfoTip text="A group of folders that get indexed together as one collection. Each group you create becomes its own searchable set, so you can keep client work separate from personal files. Folders are walked recursively." />
-                </p>
-                <GroupList
-                  groups={draft()!.projects}
-                  onAddPath={(n, v) => addGroupPath("projects", n, v)}
-                  onRemovePath={(n, v) => removeGroupPath("projects", n, v)}
-                  onAddGroup={(n) => addGroup("projects", n)}
-                  onRemoveGroup={(n) => removeGroup("projects", n)}
-                  title="Choose a project folder"
-                />
-              </div>
-              <div>
-                <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
-                  Code repositories
-                  <InfoTip text="Git repositories to index as code. The app indexes the current file tree and the commit history (how far back is set below), including any nested repos it finds, and makes the code itself searchable by meaning." />
-                </p>
-                <GroupList
-                  groups={draft()!.repositories}
-                  onAddPath={(n, v) => addGroupPath("repositories", n, v)}
-                  onRemovePath={(n, v) => removeGroupPath("repositories", n, v)}
-                  onAddGroup={(n) => addGroup("repositories", n)}
-                  onRemoveGroup={(n) => removeGroup("repositories", n)}
-                  title="Choose a code repository"
-                />
-              </div>
+            <div class="space-y-7">
+              <SourceGroup
+                title="Documents"
+                note="Notes and books you read — searched by meaning as well as keyword."
+              >
+                <div class="grid items-start gap-x-8 gap-y-6 md:grid-cols-2">
+                  <div class="space-y-3">
+                    <SourceHeading
+                      icon={<FileIcon size={15} />}
+                      title="Obsidian vaults"
+                      hint="Point at an Obsidian vault and every markdown note in it gets indexed, subfolders included. Once it's in, you can search your notes by meaning as well as by keyword. Use the exclude list below to keep noisy folders out."
+                      count={draft()!.obsidian_vaults.length}
+                      unit="path"
+                    />
+                    <PathList
+                      values={draft()!.obsidian_vaults}
+                      onAdd={(v) => addPath("obsidian_vaults", v)}
+                      onRemove={(v) => removePath("obsidian_vaults", v)}
+                      title="Choose an Obsidian vault"
+                      placeholder="path to a vault…"
+                      empty="No vaults yet — add one and its notes become searchable."
+                    />
+                    <div class="space-y-2.5 rounded-control border border-line bg-surface/40 p-3">
+                      <SourceHeading
+                        icon={<SlashIcon size={14} />}
+                        title="Excluded folders"
+                        hint="Folders listed here are skipped when vaults are indexed. Handy for hiding attachments, templates, .trash, or anything else you don't want showing up in search results."
+                        count={draft()!.obsidian_exclude_folders.length}
+                        unit="folder"
+                      />
+                      <ChipList
+                        values={draft()!.obsidian_exclude_folders}
+                        onAdd={(v) => addPath("obsidian_exclude_folders", v)}
+                        onRemove={(v) => removePath("obsidian_exclude_folders", v)}
+                        title="Choose a folder to exclude"
+                      />
+                    </div>
+                  </div>
+                  <div class="space-y-3">
+                    <SourceHeading
+                      icon={<LibraryIcon size={15} />}
+                      title="Calibre libraries"
+                      hint="Point at a Calibre library and the app reads your book metadata and indexes the text of the formats it understands, so your books become searchable without opening them."
+                      count={draft()!.calibre_libraries.length}
+                      unit="path"
+                    />
+                    <PathList
+                      values={draft()!.calibre_libraries}
+                      onAdd={(v) => addPath("calibre_libraries", v)}
+                      onRemove={(v) => removePath("calibre_libraries", v)}
+                      title="Choose a Calibre library"
+                      placeholder="path to a library…"
+                      empty="No libraries yet — add a Calibre library to search its books."
+                    />
+                  </div>
+                </div>
+              </SourceGroup>
+
+              <SourceGroup
+                title="Code"
+                note="Folders you work in, grouped into searchable collections. How far back git history goes is set under Indexing."
+              >
+                <div class="grid items-start gap-x-8 gap-y-6 md:grid-cols-2">
+                  <div class="space-y-3">
+                    <SourceHeading
+                      icon={<FolderOpenIcon size={15} />}
+                      title="Project folders"
+                      hint="A group of folders that get indexed together as one collection. Each group you create becomes its own searchable set, so you can keep client work separate from personal files. Folders are walked recursively."
+                      count={Object.keys(draft()!.projects).length}
+                      unit="group"
+                    />
+                    <GroupList
+                      groups={draft()!.projects}
+                      onAddPath={(n, v) => addGroupPath("projects", n, v)}
+                      onRemovePath={(n, v) => removeGroupPath("projects", n, v)}
+                      onAddGroup={(n) => addGroup("projects", n)}
+                      onRemoveGroup={(n) => removeGroup("projects", n)}
+                      title="Choose a project folder"
+                      empty="No project groups yet — create one, then add its folders."
+                    />
+                  </div>
+                  <div class="space-y-3">
+                    <SourceHeading
+                      icon={<CodeIcon size={15} />}
+                      title="Code repositories"
+                      hint="Git repositories to index as code. The app indexes the current file tree and the commit history (how far back is set below), including any nested repos it finds, and makes the code itself searchable by meaning."
+                      count={Object.keys(draft()!.repositories).length}
+                      unit="group"
+                    />
+                    <GroupList
+                      groups={draft()!.repositories}
+                      onAddPath={(n, v) => addGroupPath("repositories", n, v)}
+                      onRemovePath={(n, v) => removeGroupPath("repositories", n, v)}
+                      onAddGroup={(n) => addGroup("repositories", n)}
+                      onRemoveGroup={(n) => removeGroup("repositories", n)}
+                      title="Choose a code repository"
+                      empty="No repository groups yet — create one, then add its repos."
+                    />
+                  </div>
+                </div>
+              </SourceGroup>
             </div>
           </Section>
 
@@ -775,6 +1065,33 @@ export function SettingsView() {
               hint="Launch vectile automatically when you sign in to your computer, so it's already open and indexing before you need it."
             />
           </Section>
+        </div>
+      </Show>
+
+      {/* Leaving Settings with unsaved edits: the store holds the navigation and
+          this dialog decides whether the draft is saved or dropped. */}
+      <Show when={store.pendingLeave() !== null}>
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 p-4"
+          onClick={() => store.cancelLeave()}
+        >
+          <div class="sheet w-[24rem] p-5 shadow-pop" onClick={(e) => e.stopPropagation()}>
+            <h3 class="title text-[15px] tracking-[-0.01em] text-ink">Save your changes before leaving?</h3>
+            <p class="read mt-2 text-[13.5px] leading-5 text-muted">
+              You've edited settings that aren't saved yet. If you leave now, your changes will be lost.
+            </p>
+            <div class="mt-5 flex flex-col gap-2">
+              <Button autofocus onClick={() => void saveAndLeave()}>
+                Save settings
+              </Button>
+              <Button variant="outline" onClick={() => store.confirmLeave({ discard: true })}>
+                Leave without saving
+              </Button>
+              <Button variant="ghost" onClick={() => store.cancelLeave()}>
+                Keep editing
+              </Button>
+            </div>
+          </div>
         </div>
       </Show>
     </div>

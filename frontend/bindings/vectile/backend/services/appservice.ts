@@ -15,6 +15,15 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
+ * GetCPUCount returns the number of logical CPUs available to the process —
+ * the ceiling the Settings UI uses for the model's CPU-threads slider
+ * (0 = use all of them).
+ */
+export function GetCPUCount(): $CancellablePromise<number> {
+    return $Call.ByID(899550166);
+}
+
+/**
  * GetModelError returns the embedder's load error (for the status pill).
  */
 export function GetModelError(): $CancellablePromise<string> {
