@@ -165,7 +165,9 @@ jobs:
 
       - name: Build NSIS installer
         shell: cmd
-        run: makensis -DARG_WAILS_AMD64_BINARY=..\..\bin\vectile-windows-amd64.exe build\windows\nsis\project.nsi
+        run: |
+          if not exist bin mkdir bin
+          makensis -DARG_WAILS_AMD64_BINARY=..\..\bin\vectile-windows-amd64.exe build\windows\nsis\project.nsi
 
       - name: Collect artifacts
         shell: pwsh
