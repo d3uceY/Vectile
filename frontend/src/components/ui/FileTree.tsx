@@ -57,12 +57,25 @@ export function FileTree(props: {
   const dir = props.dir ?? "ltr";
   const indicator = props.indicator ?? true; // vertical guide lines for nesting
 
+  // <For> keys rows by object identity, so reusing the same Row object for a
+  // node that stays visible lets Solid keep that node's DOM (focus and the
+  // tree's scroll position survive an expand/collapse). Recreating every Row
+  // on each toggle rebuilt the whole tree, which dropped focus and reset the
+  // scroll container to the top, so the browse view looked like it refreshed.
+  const rowById = new Map<string, Row>();
+
   const visible = createMemo<Row[]>(() => {
     const out: Row[] = [];
     const walk = (nodes: TreeViewElement[], depth: number) => {
       for (const n of sortNodes(nodes, sort)) {
         const hc = isFolder(n);
-        out.push({ node: n, depth, hasChildren: hc });
+        const cached = rowById.get(n.id);
+        const row =
+          cached && cached.node === n && cached.depth === depth
+            ? cached
+            : { node: n, depth, hasChildren: hc };
+        rowById.set(n.id, row);
+        out.push(row);
         if (hc && expanded().has(n.id)) walk(n.children ?? [], depth + 1);
       }
     };
