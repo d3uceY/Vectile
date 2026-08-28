@@ -230,3 +230,69 @@ func TestDeleteCollectionDataCascade(t *testing.T) {
 		}
 	}
 }
+
+// TestDeleteDocumentsDataCascade verifies deleting a subset of a source's
+// documents removes only those chunks, their FTS rows, and their float +
+// binary embeddings, leaving the source, collection, and the other chunks
+// intact.
+func TestDeleteDocumentsDataCascade(t *testing.T) {
+	conn := testDB(t)
+	if err := InitSchema(conn, EmbeddingDim); err != nil {
+		t.Fatal(err)
+	}
+	_, sourceID, keepID := seedDoc(t, conn, "notes", "/tmp/note.md")
+
+	// A second chunk in the same source; this one gets deleted.
+	docRes, err := conn.Exec(
+		"INSERT INTO documents (source_id, collection_id, chunk_index, title, content) VALUES (?,?,?,?,?)",
+		sourceID, 0, 1, "Note 2", "a second chunk of content",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dropID, _ := docRes.LastInsertId()
+	vec := make([]float32, EmbeddingDim)
+	vec[1] = 1
+	if err := InsertEmbedding(conn, dropID, embeddings.SerializeFloat32(vec)); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := DeleteDocumentsData(conn, []int64{dropID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("expected 1 document deleted, got %d", n)
+	}
+	// Dropped chunk is gone everywhere: documents row, FTS row, both vector
+	// tables. The kept chunk's rows all survive.
+	if got := countTable(t, conn, "documents", "id = ?", dropID); got != 0 {
+		t.Fatalf("dropped document still present (%d rows)", got)
+	}
+	if got := countTable(t, conn, "documents_fts", "rowid = ?", dropID); got != 0 {
+		t.Fatalf("dropped fts row still present (%d rows)", got)
+	}
+	if got := countTable(t, conn, "vec_documents", "document_id = ?", dropID); got != 0 {
+		t.Fatalf("dropped float vector still present (%d rows)", got)
+	}
+	if got := countTable(t, conn, "vec_documents_bin", "document_id = ?", dropID); got != 0 {
+		t.Fatalf("dropped binary vector still present (%d rows)", got)
+	}
+	if got := countTable(t, conn, "vec_documents", "document_id = ?", keepID); got != 1 {
+		t.Fatalf("kept float vector missing (%d rows)", got)
+	}
+	if got := countTable(t, conn, "vec_documents_bin", "document_id = ?", keepID); got != 1 {
+		t.Fatalf("kept binary vector missing (%d rows)", got)
+	}
+	// The kept chunk is still there; source + collection survive.
+	if got := countTable(t, conn, "documents", "id = ?", keepID); got != 1 {
+		t.Fatalf("kept chunk missing (%d rows)", got)
+	}
+	if got := countTable(t, conn, "sources", "id = ?", sourceID); got != 1 {
+		t.Fatalf("source should survive chunk delete, got %d rows", got)
+	}
+	// An empty id list is a harmless no-op.
+	if _, err := DeleteDocumentsData(conn, nil); err != nil {
+		t.Fatalf("empty delete failed: %v", err)
+	}
+}

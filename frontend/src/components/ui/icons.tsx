@@ -94,6 +94,12 @@ export const CloseIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const CheckIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m5 12.5 4.5 4.5L19 7" />
+  </Icon>
+);
+
 export const FolderIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />

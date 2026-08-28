@@ -113,6 +113,13 @@ export async function deleteSource(sourceId: number): Promise<number> {
   return IndexService.DeleteSource(sourceId) as unknown as number;
 }
 
+/** Deletes the given chunks (documents) and their embeddings + FTS rows in
+    one pass, leaving the source and collection in place. Returns chunks
+    removed. */
+export async function deleteDocuments(docIDs: number[]): Promise<number> {
+  return IndexService.DeleteDocuments(docIDs) as unknown as number;
+}
+
 /** Deletes a collection and everything cascading from it, and removes its
     config entry so it doesn't come back on the next index pass. Returns docs
     removed. */

@@ -629,3 +629,39 @@ func DeleteCollectionData(conn *sql.DB, collectionID int64) (int64, error) {
 	}
 	return docs, tx.Commit()
 }
+
+// DeleteDocumentsData removes the given documents (chunks) and their float +
+// binary embeddings in one transaction, leaving the source and collection
+// rows intact. The vec0 tables are not foreign-key linked, so their rows are
+// deleted explicitly, in the same transaction, before the documents they
+// reference disappear. An empty id list is a no-op. Returns the number of
+// documents removed.
+func DeleteDocumentsData(conn *sql.DB, docIDs []int64) (int64, error) {
+	if len(docIDs) == 0 {
+		return 0, nil
+	}
+	tx, err := conn.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("begin delete documents tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(docIDs)), ",")
+	args := make([]any, len(docIDs))
+	for i, id := range docIDs {
+		args[i] = id
+	}
+	for _, table := range []string{"vec_documents_bin", "vec_documents"} {
+		if _, err := tx.Exec(
+			"DELETE FROM "+table+" WHERE document_id IN ("+placeholders+")", args...,
+		); err != nil {
+			return 0, fmt.Errorf("delete %s: %w", table, err)
+		}
+	}
+	res, err := tx.Exec("DELETE FROM documents WHERE id IN ("+placeholders+")", args...)
+	if err != nil {
+		return 0, fmt.Errorf("delete documents: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, tx.Commit()
+}

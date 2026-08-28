@@ -168,6 +168,18 @@ func (s *IndexService) DeleteSource(sourceID int64) (int64, error) {
 	return n, nil
 }
 
+// DeleteDocuments removes the given chunks (documents) and their float +
+// binary embeddings in one pass; FTS is cleared via the delete trigger. The
+// source and collection rows stay, so re-indexing restores the deleted
+// chunks. An empty list is a no-op. Errors if an index run is in progress.
+// Returns the number of documents removed.
+func (s *IndexService) DeleteDocuments(docIDs []int64) (int64, error) {
+	if s.IsIndexing() {
+		return 0, fmt.Errorf("cannot delete while an index run is in progress")
+	}
+	return db.DeleteDocumentsData(db.DB, docIDs)
+}
+
 // DeleteCollection removes a collection and everything cascading from it:
 // its sources, documents (FTS cleared via the delete trigger), float + binary
 // embeddings, and the collection row. It also removes the collection's config

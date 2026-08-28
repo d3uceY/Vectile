@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
-import { ChevronDown, ChevronRight, FileIcon, FolderIcon, FolderOpenIcon } from "./icons";
+import { CheckIcon, ChevronDown, ChevronRight, FileIcon, FolderIcon, FolderOpenIcon } from "./icons";
 
 export type TreeViewElement = {
   id: string;
@@ -43,6 +43,11 @@ export function FileTree(props: {
   onSelect?: (id: string, node: TreeViewElement) => void;
   showExpandAll?: boolean;
   class?: string;
+  /** Show a checkbox on leaf nodes (for bulk select). Clicking it toggles
+      the check without selecting the row. */
+  checkable?: boolean;
+  isChecked?: (id: string) => boolean;
+  onToggleCheck?: (id: string, node: TreeViewElement) => void;
 }) {
   const [selectedId, setSelectedId] = createSignal<string>(props.initialSelectedId ?? "");
   const [expanded, setExpanded] = createSignal<Set<string>>(
@@ -180,6 +185,25 @@ export function FileTree(props: {
                   class="pointer-events-none absolute inset-y-0 w-px bg-line-strong/70"
                   style={{ left: `${8 + row.depth * 16}px` }}
                 />
+              </Show>
+              <Show when={props.checkable && !row.hasChildren}>
+                <span
+                  role="checkbox"
+                  aria-checked={props.isChecked?.(row.node.id) ?? false}
+                  tabIndex={-1}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    props.onToggleCheck?.(row.node.id, row.node);
+                  }}
+                  class={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors duration-100 ease-snappy ${
+                    props.isChecked?.(row.node.id)
+                      ? "border-leaf bg-leaf text-white"
+                      : "border-line-strong bg-paper text-transparent hover:border-leaf/60"
+                  }`}
+                >
+                  <CheckIcon size={11} strokeWidth={2.5} />
+                </span>
               </Show>
               <span
                 class={`flex h-4 w-4 shrink-0 items-center justify-center text-faint transition-transform duration-150 ease-snappy ${

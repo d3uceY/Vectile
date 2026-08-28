@@ -20,6 +20,7 @@ const M = {
   GetConfig: 2113296768,
   DeleteSource: 2650919656,
   DeleteCollection: 3393632225,
+  DeleteDocuments: 2694537237,
   GetIndexingState: 148853163,
   IndexCollection: 180963702,
   IndexAll: 2589092493,
@@ -333,6 +334,13 @@ export async function stub(request) {
       documents = documents.filter((d) => d.sourceId !== s.id);
       sources = sources.filter((x) => x.id !== sourceId);
       return { body: removed };
+    }
+    case M.DeleteDocuments: {
+      const ids = new Set(post.args?.args?.[0] ?? []);
+      if (ids.size === 0) return { body: 0 };
+      const before = documents.length;
+      documents = documents.filter((d) => !ids.has(d.id));
+      return { body: before - documents.length };
     }
     case M.DeleteCollection: {
       const name = post.args?.args?.[0];

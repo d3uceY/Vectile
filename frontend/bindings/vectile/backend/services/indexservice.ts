@@ -52,6 +52,17 @@ export function DeleteCollection(name: string): $CancellablePromise<number> {
 }
 
 /**
+ * DeleteDocuments removes the given chunks (documents) and their float +
+ * binary embeddings in one pass; FTS is cleared via the delete trigger. The
+ * source and collection rows stay, so re-indexing restores the deleted
+ * chunks. An empty list is a no-op. Errors if an index run is in progress.
+ * Returns the number of documents removed.
+ */
+export function DeleteDocuments(docIDs: number[]): $CancellablePromise<number> {
+    return $Call.ByID(2694537237, docIDs);
+}
+
+/**
  * DeleteSource removes one indexed source and everything cascading from it:
  * its documents (FTS cleared via the delete trigger) and its float + binary
  * embeddings. The source's path stays in config — this is one file among many

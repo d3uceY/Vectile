@@ -461,6 +461,26 @@ export function createAppStore() {
     }
   };
 
+  // Delete a set of chunks (documents) in one pass. The sources and
+  // collections stay; re-indexing restores the deleted chunks. Returns true
+  // on success.
+  const deleteDocuments = async (docIDs: number[], label: string): Promise<boolean> => {
+    try {
+      const removed = await api.deleteDocuments(docIDs);
+      pushToast(
+        `Removed ${label} · ${removed} chunk${removed === 1 ? "" : "s"} deleted`,
+        "success",
+      );
+      setSelectedDoc(null);
+      void refresh();
+      void loadLibrary();
+      return true;
+    } catch (err) {
+      pushToast(`Delete failed: ${err}`, "danger");
+      return false;
+    }
+  };
+
   // Delete a whole collection: indexed data (sources, documents, embeddings,
   // FTS) plus its config entry, so it won't resurrect on the next index pass.
   // Returns true on success.
@@ -636,6 +656,7 @@ export function createAppStore() {
     addSource,
     toggleCollection,
     deleteSource,
+    deleteDocuments,
     deleteCollection,
     toasts,
     pushToast,

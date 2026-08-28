@@ -102,14 +102,16 @@ export function IndexView() {
                       >
                         Index new
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={store.indexing() || !item.enabled}
-                        onClick={() => store.startIndex(item.name, true)}
-                      >
-                        Re-index all
-                      </Button>
+                      <Show when={col()}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={store.indexing() || !item.enabled}
+                          onClick={() => store.startIndex(item.name, true)}
+                        >
+                          Re-index all
+                        </Button>
+                      </Show>
                       <Button size="sm" variant="ghost" disabled={store.indexing()} onClick={() => store.runPrune(item.name)}>
                         Prune
                       </Button>

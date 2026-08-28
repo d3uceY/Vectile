@@ -1,8 +1,16 @@
-import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { useAppStore } from "../../lib/store";
 import { FileTree, type TreeViewElement } from "../ui/FileTree";
-import { ViewHeading, Button, Chip, EmptyState, Skeleton } from "../ui/primitives";
-import { BrowseIcon } from "../ui/icons";
+import {
+  ViewHeading,
+  Button,
+  Chip,
+  ConfirmDialog,
+  EmptyState,
+  Select,
+  Skeleton,
+} from "../ui/primitives";
+import { BrowseIcon, TrashIcon } from "../ui/icons";
 import { GridPattern } from "../ui/patterns";
 
 // Tree node ids must be unique across the whole tree, but collection/source/
@@ -18,44 +26,178 @@ export function BrowseView() {
   const store = useAppStore();
   const [loaded, setLoaded] = createSignal(false);
 
-  const tree = createMemo<TreeViewElement[]>(() =>
-    store.collections().map((c) => ({
-      id: cid(c.id),
-      name: c.name,
-      type: "folder" as const,
-      children: store
-        .sources()
-        .filter((s) => s.collectionId === c.id)
-        .map((s) => ({
-          id: sid(s.id),
-          name: s.path.split(/[\\/]/).pop() || s.path,
-          type: "folder" as const,
-          children: store
-            .documents()
-            .filter((d) => d.sourceId === s.id)
-            .map((d) => ({ id: did(d.id), name: d.title, type: "file" as const })),
-        })),
-    })),
+  // The library (collection) being browsed. A memo falls back to the first
+  // collection, and an effect lands on the first one that has chunks.
+  const [colId, setColId] = createSignal<number | null>(null);
+  // Chunk ids checked for a bulk delete.
+  const [checked, setChecked] = createSignal<Set<number>>(new Set());
+
+  const collection = createMemo(
+    () => store.collections().find((c) => c.id === colId()) ?? store.collections()[0] ?? null,
   );
+
+  const libraryDocs = createMemo(() => {
+    const c = collection();
+    return c ? store.documents().filter((d) => d.collectionId === c.id) : [];
+  });
+
+  const tree = createMemo<TreeViewElement[]>(() => {
+    const c = collection();
+    if (!c) return [];
+    return [
+      {
+        id: cid(c.id),
+        name: c.name,
+        type: "folder" as const,
+        children: store
+          .sources()
+          .filter((s) => s.collectionId === c.id)
+          .map((s) => ({
+            id: sid(s.id),
+            name: s.path.split(/[\\/]/).pop() || s.path,
+            type: "folder" as const,
+            children: libraryDocs()
+              .filter((d) => d.sourceId === s.id)
+              .map((d) => ({ id: did(d.id), name: d.title, type: "file" as const })),
+          })),
+      },
+    ];
+  });
 
   const initialExpanded = createMemo(() => {
     const out: string[] = [];
-    const first = store.collections()[0];
-    if (first) out.push(cid(first.id));
-    const firstSource = store.sources().find((s) => s.collectionId === first?.id);
+    const c = collection();
+    if (c) out.push(cid(c.id));
+    const firstSource = store.sources().find((s) => s.collectionId === c?.id);
     if (firstSource) out.push(sid(firstSource.id));
     return out;
   });
 
   const doc = () => {
     const sel = store.selectedDoc();
-    if (sel) return sel;
-    return store.documents()[0] ?? null;
+    if (sel && sel.collectionId === collection()?.id) return sel;
+    return libraryDocs()[0] ?? null;
   };
 
   const onSelect = (tid: string) => {
-    const d = store.documents().find((x) => did(x.id) === tid);
+    const d = libraryDocs().find((x) => did(x.id) === tid);
     if (d) store.setSelectedDoc(d);
+  };
+
+  // --- bulk chunk selection --------------------------------------------
+  // Checkboxes sit on the tree's leaf (chunk) rows. Toggling one must not
+  // also open the chunk, so the FileTree stops propagation on the checkbox.
+
+  const nChecked = () => checked().size;
+
+  const toggleCheck = (tid: string, node: TreeViewElement) => {
+    const n = Number(tid.slice(2));
+    if (!Number.isFinite(n)) return;
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(n)) next.delete(n);
+      else next.add(n);
+      return next;
+    });
+  };
+
+  const isChecked = (tid: string) => checked().has(Number(tid.slice(2)));
+
+  const selectAll = () =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      for (const d of libraryDocs()) next.add(d.id);
+      return next;
+    });
+
+  const clearChecked = () => setChecked(new Set<number>());
+
+  // Drop checks that point at chunks that no longer exist (after a reload or
+  // a delete) so the count never includes ghosts.
+  createEffect(() => {
+    const live = new Set(libraryDocs().map((d) => d.id));
+    setChecked((prev) => {
+      let changed = false;
+      const next = new Set<number>();
+      for (const id of prev) {
+        if (live.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  });
+
+  // Land on the first library that has chunks, once.
+  createEffect(() => {
+    if (colId() === null) {
+      const first = store
+        .collections()
+        .find((c) => store.documents().some((d) => d.collectionId === c.id));
+      if (first) setColId(first.id);
+    }
+  });
+
+  const onLibraryChange = (e: Event & { currentTarget: HTMLSelectElement }) => {
+    const id = Number(e.currentTarget.value);
+    setColId(Number.isFinite(id) && id > 0 ? id : null);
+    setChecked(new Set<number>());
+    store.setSelectedDoc(null);
+  };
+
+  // --- delete dialogs --------------------------------------------------
+
+  const [confirm, setConfirm] = createSignal<
+    | { kind: "library"; name: string; chunks: number }
+    | { kind: "chunks"; count: number }
+    | null
+  >(null);
+  const [deleting, setDeleting] = createSignal(false);
+
+  const doDelete = async () => {
+    const t = confirm();
+    if (!t) return;
+    setDeleting(true);
+    const ok =
+      t.kind === "library"
+        ? await store.deleteCollection(t.name, t.name)
+        : await store.deleteDocuments(
+            [...checked()],
+            `${t.count} selected chunk${t.count === 1 ? "" : "s"}`,
+          );
+    setDeleting(false);
+    if (!ok) return;
+    setConfirm(null);
+    setChecked(new Set<number>());
+    if (t.kind === "library") {
+      // collections() is still the stale list here, so skip the one removed.
+      const next = store.collections().find((c) => c.name !== t.name);
+      setColId(next ? next.id : null);
+      store.setSelectedDoc(null);
+    }
+  };
+
+  const confirmTitle = () => {
+    const t = confirm();
+    if (!t) return "";
+    return t.kind === "library"
+      ? `Delete the ${t.name} library?`
+      : `Delete ${t.count} chunk${t.count === 1 ? "" : "s"}?`;
+  };
+
+  const confirmBody = () => {
+    const t = confirm();
+    if (!t) return null;
+    return t.kind === "library" ? (
+      <span>
+        Removes all {t.chunks.toLocaleString()} chunks in {t.name} and its sources, and removes
+        it from Settings. Files on disk are untouched.
+      </span>
+    ) : (
+      <span>
+        The selected chunks leave the index: their embeddings and search entries go with them.
+        Sources and files on disk stay.
+      </span>
+    );
   };
 
   onMount(() => {
@@ -105,15 +247,96 @@ export function BrowseView() {
             </div>
           }
         >
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <Select
+            aria-label="Library"
+            value={collection() ? String(collection()!.id) : ""}
+            onChange={onLibraryChange}
+            options={store.collections().map((c) => ({ value: String(c.id), label: c.name }))}
+          />
+          <Chip tone="mint">{libraryDocs().length.toLocaleString()} chunks</Chip>
+          <div class="flex-1" />
+          <Show when={collection()}>
+            <Button
+              size="sm"
+              variant="outline"
+              class="border-danger/30 text-danger hover:border-danger/50 hover:text-danger"
+              onClick={() =>
+                setConfirm({
+                  kind: "library",
+                  name: collection()!.name,
+                  chunks: collection()!.chunks,
+                })
+              }
+            >
+              <TrashIcon size={14} /> Delete library
+            </Button>
+          </Show>
+        </div>
+
         <div class="flex h-full min-h-0 flex-col gap-4 @lg:grid @lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-          <div class="sheet scroll-quiet min-h-0 flex-1 overflow-y-auto p-3">
-            <FileTree
-              elements={loaded() ? tree() : []}
-              initialSelectedId={doc() ? did(doc()!.id) : undefined}
-              initialExpandedItems={initialExpanded()}
-              onSelect={onSelect}
-              showExpandAll
-            />
+          <div class="flex min-h-0 flex-1 flex-col gap-2">
+            <Show when={libraryDocs().length > 0}>
+              <div class="flex items-center gap-2 rounded-lg bg-mint/60 px-2.5 py-1.5">
+                <span class="data text-[12px] font-medium text-ink">
+                  {nChecked() > 0 ? `${nChecked()} selected` : "Select chunks to delete them"}
+                </span>
+                <button
+                  type="button"
+                  class="data text-[12px] text-leaf hover:underline"
+                  onClick={selectAll}
+                >
+                  Select all
+                </button>
+                <Show when={nChecked() > 0}>
+                  <button
+                    type="button"
+                    class="data text-[12px] text-leaf hover:underline"
+                    onClick={clearChecked}
+                  >
+                    Clear
+                  </button>
+                </Show>
+                <div class="flex-1" />
+                <button
+                  type="button"
+                  disabled={nChecked() === 0}
+                  class="inline-flex items-center gap-1.5 rounded-control bg-danger px-2.5 py-1 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
+                  onClick={() => setConfirm({ kind: "chunks", count: nChecked() })}
+                >
+                  <TrashIcon size={12} /> Delete
+                </button>
+              </div>
+            </Show>
+            <div class="sheet scroll-quiet min-h-0 flex-1 overflow-y-auto p-3">
+              <Show
+                when={libraryDocs().length > 0}
+                fallback={
+                  <div class="flex h-full items-center justify-center">
+                    <p class="note max-w-[16rem] text-center text-[14px] leading-5 text-muted">
+                      No chunks in this library yet. Index it, pick another library, or delete it.
+                    </p>
+                  </div>
+                }
+              >
+                {/* Keyed by library id so the tree's internal expand/selection
+                    state resets when you switch libraries. */}
+                <For each={[{ id: collection()?.id ?? -1 }]}>
+                  {() => (
+                    <FileTree
+                      elements={tree()}
+                      initialSelectedId={doc() ? did(doc()!.id) : undefined}
+                      initialExpandedItems={initialExpanded()}
+                      onSelect={onSelect}
+                      showExpandAll
+                      checkable
+                      isChecked={isChecked}
+                      onToggleCheck={toggleCheck}
+                    />
+                  )}
+                </For>
+              </Show>
+            </div>
           </div>
 
           <Show when={doc()} fallback={<div class="sheet min-h-0 flex-1" />}>
@@ -151,6 +374,15 @@ export function BrowseView() {
         </div>
         </Show>
       </div>
+
+      <ConfirmDialog
+        open={confirm() !== null}
+        title={confirmTitle()}
+        body={confirmBody()}
+        busy={deleting()}
+        onCancel={() => setConfirm(null)}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }
