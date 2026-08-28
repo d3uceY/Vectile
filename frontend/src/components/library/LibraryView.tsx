@@ -83,11 +83,14 @@ export function LibraryView() {
           }
         >
         <div class="sheet overflow-hidden">
-          <div class="grid grid-cols-12 gap-2 border-b border-line bg-surface/50 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
-            <span class="col-span-5">Collection</span>
-            <span class="col-span-3">Files</span>
-            <span class="col-span-2 text-right">Chunks</span>
-            <span class="col-span-2 text-right">Indexed</span>
+          <div class="flex items-stretch border-b border-line bg-surface/50">
+            <div class="grid flex-1 grid-cols-12 gap-2 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+              <span class="col-span-6">Collection</span>
+              <span class="col-span-2">Files</span>
+              <span class="col-span-2 text-right">Chunks</span>
+              <span class="col-span-2 text-right">Indexed</span>
+            </div>
+            <div class="w-[43px] shrink-0" aria-hidden="true" />
           </div>
           <ul class="divide-y divide-line">
             <For each={store.collections()}>
@@ -95,7 +98,7 @@ export function LibraryView() {
                 const isOpen = () => open() === String(c.id);
                 const sources = () => store.sources().filter((s) => s.collectionId === c.id);
                 return (
-                  <li>
+                  <li class="group">
                     <div class="flex items-stretch">
                       <button
                         class={`grid flex-1 grid-cols-12 items-center gap-2 px-5 py-3.5 text-left transition-colors duration-100 ease-snappy ${
@@ -152,40 +155,62 @@ export function LibraryView() {
                     </div>
 
                     <Show when={isOpen()}>
-                      <div class="border-t border-line bg-paper/70 px-6 py-3">
-                        <p class="data mb-2 text-faint">{c.description}</p>
-                        <ul class="space-y-1">
-                          <For each={sources()}>
-                            {(s) => (
-                              <li class="group flex items-center gap-2 overflow-hidden rounded-lg px-2 py-1.5 hover:bg-surface">
-                                <span class="data shrink-0 text-leaf-deep">{s.sourceType}</span>
-                                <span class="h-3 w-px shrink-0 bg-line-strong" aria-hidden="true" />
-                                <span class="data min-w-0 flex-1 truncate text-ink-soft">{s.path}</span>
-                                <span class="data shrink-0 text-faint">{s.chunks} chunks</span>
-                                <button
-                                  type="button"
-                                  class="shrink-0 text-faint opacity-0 transition-opacity duration-100 ease-snappy hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
-                                  onClick={() =>
-                                    setConfirm({
-                                      kind: "source",
-                                      id: s.id,
-                                      name: s.path.split(/[\\/]/).pop() || s.path,
-                                      path: s.path,
-                                      chunks: s.chunks,
-                                    })
-                                  }
-                                  aria-label={`Delete source ${s.path}`}
-                                  title={`Remove ${s.path} from the index`}
-                                >
-                                  <TrashIcon size={14} />
-                                </button>
-                              </li>
-                            )}
-                          </For>
-                          <Show when={sources().length === 0}>
-                            <li class="data px-2 py-1 text-faint">No sources indexed yet.</li>
-                          </Show>
-                        </ul>
+                      <div class="border-t border-line bg-paper/70">
+                        <Show when={c.description}>
+                          <p class="data px-5 pt-3 pb-1 text-faint">{c.description}</p>
+                        </Show>
+                        <Show
+                          when={sources().length > 0}
+                          fallback={
+                            <div class="px-5 py-3">
+                              <p class="data text-faint">No sources indexed yet.</p>
+                            </div>
+                          }
+                        >
+                          <ul class="pb-2">
+                            <For each={sources()}>
+                              {(s) => (
+                                <li class="group flex items-stretch rounded-lg hover:bg-surface">
+                                  <div class="grid min-w-0 flex-1 grid-cols-12 items-center gap-2 px-5 py-1.5">
+                                    <span class="col-span-6 flex min-w-0 items-center gap-2 pl-6">
+                                      <span class="data min-w-0 flex-1 truncate text-ink-soft">
+                                        {s.path}
+                                      </span>
+                                    </span>
+                                    <span class="data col-span-2 truncate text-faint">
+                                      {s.sourceType}
+                                    </span>
+                                    <span class="data col-span-2 text-right text-muted">
+                                      {s.chunks.toLocaleString()}
+                                    </span>
+                                    <span class="data col-span-2 text-right text-faint">
+                                      {s.lastIndexed
+                                        ? new Date(s.lastIndexed).toLocaleDateString()
+                                        : "never"}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    class="flex shrink-0 items-center px-3.5 text-faint opacity-0 transition-opacity duration-100 ease-snappy hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+                                    onClick={() =>
+                                      setConfirm({
+                                        kind: "source",
+                                        id: s.id,
+                                        name: s.path.split(/[\\/]/).pop() || s.path,
+                                        path: s.path,
+                                        chunks: s.chunks,
+                                      })
+                                    }
+                                    aria-label={`Delete source ${s.path}`}
+                                    title={`Remove ${s.path} from the index`}
+                                  >
+                                    <TrashIcon size={15} />
+                                  </button>
+                                </li>
+                              )}
+                            </For>
+                          </ul>
+                        </Show>
                       </div>
                     </Show>
                   </li>
