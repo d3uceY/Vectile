@@ -399,6 +399,7 @@ func commitToChunks(commit CommitInfo, fileChanges []FileChange, repoPath string
 
 func runGit(repoPath string, args ...string) (string, error) {
 	cmd := exec.Command("git", append([]string{"-C", repoPath}, args...)...)
+	hideWindow(cmd)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
