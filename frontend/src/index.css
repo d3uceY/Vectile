@@ -267,10 +267,10 @@
   }
   @keyframes index-progress-slide {
     0% {
-      transform: translateX(-30%);
+      transform: translateX(-100%);
     }
     100% {
-      transform: translateX(240%);
+      transform: translateX(400%);
     }
   }
   .index-progress__shine {
@@ -291,7 +291,7 @@
   }
   @keyframes index-progress-shine {
     0% {
-      background-position: -100% center;
+      background-position: -10% center;
     }
     100% {
       background-position: 200% center;
