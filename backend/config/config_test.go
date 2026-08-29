@@ -19,6 +19,12 @@ func TestDefaults(t *testing.T) {
 	if !cfg.SkipCloudPlaceholders {
 		t.Fatal("cloud placeholders should default to skipped")
 	}
+	if cfg.MCP.Enabled {
+		t.Fatal("MCP server should default to disabled")
+	}
+	if cfg.MCP.Port != 31123 {
+		t.Fatalf("default MCP port = %d, want 31123", cfg.MCP.Port)
+	}
 }
 
 func TestSaveLoadRoundtrip(t *testing.T) {
@@ -28,6 +34,8 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 	cfg.ChunkSizeTokens = 300
 	cfg.GUI.AutoReindex = true
 	cfg.GUI.AutoReindexIntervalMinutes = 45
+	cfg.MCP.Enabled = true
+	cfg.MCP.Port = 40404
 
 	if err := Save(cfg, path); err != nil {
 		t.Fatal(err)
@@ -45,6 +53,9 @@ func TestSaveLoadRoundtrip(t *testing.T) {
 	}
 	if !got.GUI.AutoReindex || got.GUI.AutoReindexIntervalMinutes != 45 {
 		t.Fatalf("gui config not round-tripped: %+v", got.GUI)
+	}
+	if !got.MCP.Enabled || got.MCP.Port != 40404 {
+		t.Fatalf("mcp config not round-tripped: %+v", got.MCP)
 	}
 }
 

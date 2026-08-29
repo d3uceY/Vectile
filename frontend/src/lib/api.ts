@@ -5,6 +5,7 @@
 import { Dialogs } from "@wailsio/runtime";
 import * as AppService from "../../bindings/vectile/backend/services/appservice";
 import * as IndexService from "../../bindings/vectile/backend/services/indexservice";
+import * as MCPService from "../../bindings/vectile/backend/mcp/mcpservice";
 import * as ModelService from "../../bindings/vectile/backend/services/modelservice";
 import * as SearchService from "../../bindings/vectile/backend/services/searchservice";
 import type {
@@ -12,6 +13,7 @@ import type {
   Collection,
   Document,
   IndexState,
+  MCPStatus,
   ModelInfo,
   SearchFilters,
   SearchResult,
@@ -34,6 +36,21 @@ const filterToBackend = (f: SearchFilters) => ({
 
 export async function getStatus(): Promise<Status> {
   return AppService.GetStatus() as unknown as Status;
+}
+
+/** Live state of the in-app MCP server (running / port / URL). */
+export async function getMCPStatus(): Promise<MCPStatus> {
+  return MCPService.GetMCPStatus() as unknown as MCPStatus;
+}
+
+/** Start the MCP SSE server on 127.0.0.1:port; returns the connection URL. */
+export async function startMCP(port: number): Promise<string> {
+  return MCPService.StartServer(port) as unknown as string;
+}
+
+/** Stop the MCP SSE server. No-op when it is not running. */
+export async function stopMCP(): Promise<void> {
+  await MCPService.StopServer();
 }
 
 export async function getVersion(): Promise<string> {

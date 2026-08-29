@@ -1,9 +1,9 @@
 import { createEffect, createSignal, createUniqueId, For, Show, type JSX } from "solid-js";
 import { useAppStore } from "../../lib/store";
 import { importModel, pickFolder, pickModelFile } from "../../lib/api";
-import type { AppConfig, GUIConfig, ModelInfo, SearchDefaults } from "../../lib/types";
+import type { AppConfig, GUIConfig, MCPConfig, ModelInfo, SearchDefaults } from "../../lib/types";
 import { Button, ConfirmDialog, InfoTip, Select, StatusPill, Toggle, ViewHeading } from "../ui/primitives";
-import { CloseIcon, CodeIcon, FileIcon, FolderOpenIcon, LibraryIcon, SlashIcon } from "../ui/icons";
+import { CheckIcon, CloseIcon, CodeIcon, CopyIcon, FileIcon, FolderOpenIcon, LibraryIcon, PlugIcon, SlashIcon } from "../ui/icons";
 
 /* ---- hard bounds for numeric settings ----
    Every numeric field is clamped to these ranges on load and on change, and
@@ -37,7 +37,8 @@ const STATIC_BOUNDS: Record<
   | "rrf_k"
   | "vector_weight"
   | "fts_weight"
-  | "auto_reindex_interval_minutes",
+  | "auto_reindex_interval_minutes"
+  | "mcp_port",
   NumBounds
 > = {
   embedding_batch_size: { min: 1, max: 512, step: 1 },
@@ -49,6 +50,7 @@ const STATIC_BOUNDS: Record<
   vector_weight: { min: 0, max: 1, step: 0.05 },
   fts_weight: { min: 0, max: 1, step: 0.05 },
   auto_reindex_interval_minutes: { min: 1, max: 10080, step: 1 },
+  mcp_port: { min: 1024, max: 65535, step: 1 },
 };
 
 /** Effective bounds for a key; chunk overlap's max tracks the current chunk size. */
@@ -481,6 +483,82 @@ function SourceGroup(props: { title: string; note: string; children: JSX.Element
   );
 }
 
+/* Copy to the clipboard, with a legacy textarea fallback for webviews where
+   the async Clipboard API is unavailable or blocked. */
+const copyText = async (text: string): Promise<boolean> => {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through to the textarea fallback */
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+};
+
+/* A mono command or config snippet with a copy button that flips to a check
+   for a beat after copying. Used by the Connect section's setup directions.
+   multiline keeps the line breaks in the copied text visible (for a JSON
+   block); single-line snippets truncate with ellipsis instead. */
+function Snippet(props: { label: string; code: string; multiline?: boolean }) {
+  const [copied, setCopied] = createSignal(false);
+  const copy = async () => {
+    if (await copyText(props.code)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    }
+  };
+  return (
+    <div>
+      <p class="data mb-1 text-[11.5px] font-medium uppercase tracking-[0.08em] text-faint">{props.label}</p>
+      <div class="flex items-center gap-2 rounded-control border border-line bg-surface/60 px-3 py-2">
+        <code
+          class={`data min-w-0 flex-1 font-mono text-[12px] leading-5 text-ink-soft ${
+            props.multiline ? "whitespace-pre-wrap break-all" : "truncate"
+          }`}
+          title={props.code}
+        >
+          {props.code}
+        </code>
+        <button
+          class="shrink-0 rounded p-1 text-faint transition-colors hover:text-leaf-deep"
+          onClick={() => void copy()}
+          aria-label={`Copy ${props.label}`}
+          title="Copy"
+        >
+          {copied() ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* The read-only MCP tools vectile serves, shown in the Connect section. */
+const MCP_TOOLS: { name: string; desc: string }[] = [
+  {
+    name: "vectile_search",
+    desc: "Hybrid semantic + keyword search, filterable by collection, source type, path, and date.",
+  },
+  { name: "vectile_list_collections", desc: "List your collections with file and chunk counts." },
+  {
+    name: "vectile_collection_info",
+    desc: "Details for one collection: counts, source types, and sample titles.",
+  },
+];
+
 /* ---- the view ---- */
 
 const cloneCfg = (c: AppConfig): AppConfig => ({
@@ -536,6 +614,9 @@ const sanitizeConfig = (cfg: AppConfig): AppConfig => {
     STATIC_BOUNDS.auto_reindex_interval_minutes.min,
     STATIC_BOUNDS.auto_reindex_interval_minutes.max,
   );
+  // The MCP block is absent from configs saved by older builds; default it.
+  cfg.mcp = cfg.mcp ?? { enabled: false, port: 31123 };
+  cfg.mcp.port = clamp(cfg.mcp.port, STATIC_BOUNDS.mcp_port.min, STATIC_BOUNDS.mcp_port.max);
   return cfg;
 };
 
@@ -616,6 +697,33 @@ export function SettingsView() {
       }
       return { ...d, gui };
     });
+
+  // MCP server settings. Start/stop happen on save (saveSettings reconciles
+  // the running server with the draft); this only edits the draft.
+  const setMCP = (p: Partial<MCPConfig>) =>
+    store.setSettingsDraft((d) => {
+      if (!d) return d;
+      const mcp = { ...d.mcp, ...p };
+      if (p.port !== undefined) {
+        mcp.port = clamp(p.port, STATIC_BOUNDS.mcp_port.min, STATIC_BOUNDS.mcp_port.max);
+      }
+      return { ...d, mcp };
+    });
+
+  // Live MCP server state from the backend (seeded on mount, kept fresh by
+  // mcp:status events). The URL shown in the setup directions is built from
+  // the draft port so it reflects what a save will use.
+  const running = () => store.mcpStatus()?.running ?? false;
+  const mcpUrl = () => `http://127.0.0.1:${draft()!.mcp.port}/sse`;
+  const claudeJson = () => `{\n  "mcpServers": {\n    "vectile": { "url": "${mcpUrl()}" }\n  }\n}`;
+  const [urlCopied, setUrlCopied] = createSignal(false);
+  const copyUrl = async () => {
+    const u = store.mcpStatus()?.url ?? mcpUrl();
+    if (await copyText(u)) {
+      setUrlCopied(true);
+      setTimeout(() => setUrlCopied(false), 1600);
+    }
+  };
 
   const save = async () => {
     await store.saveSettings();
@@ -1055,6 +1163,100 @@ export function SettingsView() {
               description="Launch vectile when you sign in."
               hint="Launch vectile when you sign in, so it's already open and indexing before you need it."
             />
+          </Section>
+
+          <Section
+            title="Connect"
+            note="Let AI assistants on this machine search your library through a local MCP server. Read-only: clients can search, never change."
+          >
+            {/* Status plate: live from the backend, not the draft */}
+            <div class="rounded-[9px] border border-line bg-paper-warm px-3.5 py-3">
+              <div class="flex items-center gap-2">
+                <span class="relative flex h-2 w-2 shrink-0">
+                  <span class={`h-2 w-2 rounded-full ${running() ? "bg-leaf" : "bg-faint"}`} />
+                </span>
+                <span class={`text-[12px] font-semibold leading-none ${running() ? "text-leaf-deep" : "text-muted"}`}>
+                  {running() ? "running" : "stopped"}
+                </span>
+                <Show when={running()}>
+                  <button
+                    class="ml-auto flex shrink-0 items-center gap-1 rounded-control px-1.5 py-1 text-[11.5px] text-faint transition-colors hover:bg-surface hover:text-leaf-deep"
+                    onClick={() => void copyUrl()}
+                    title="Copy URL"
+                  >
+                    {urlCopied() ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
+                    {urlCopied() ? "copied" : "copy URL"}
+                  </button>
+                </Show>
+              </div>
+              <Show
+                when={running()}
+                fallback={
+                  <p class="note mt-2 text-[12.5px] leading-4 text-muted">
+                    No server running. Enable it below, then save settings.
+                  </p>
+                }
+              >
+                <p class="data mt-2 truncate font-mono text-[12px] text-ink-soft" title={store.mcpStatus()?.url}>
+                  {store.mcpStatus()?.url}
+                </p>
+              </Show>
+              <div class="mt-2.5 border-t border-line" aria-hidden="true" />
+              <p class="note mt-2 text-[11.5px] leading-4 text-muted">
+                binds to 127.0.0.1 · nothing leaves this machine
+              </p>
+            </div>
+
+            <Toggle
+              checked={draft()!.mcp.enabled}
+              onChange={(v) => setMCP({ enabled: v })}
+              label="Share your library with AI tools"
+              description="Serve search tools over MCP on 127.0.0.1."
+              hint="Starts a local MCP server that AI assistants on this machine can connect to. Applies when you save settings. The server answers only on your machine."
+            />
+            <Show when={draft()!.mcp.enabled}>
+              <NumField
+                label="Port"
+                value={draft()!.mcp.port}
+                onChange={(n) => setMCP({ port: n })}
+                hint="The port the MCP server listens on. Clients connect to http://127.0.0.1:<port>/sse. Applies when you save."
+                min={STATIC_BOUNDS.mcp_port.min}
+                max={STATIC_BOUNDS.mcp_port.max}
+                step={STATIC_BOUNDS.mcp_port.step}
+              />
+            </Show>
+
+            <div>
+              <h4 class="flex items-center gap-1.5 text-[13px] font-semibold tracking-[-0.01em] text-ink">
+                <PlugIcon size={14} class="text-leaf" />
+                What your AI can do
+              </h4>
+              <p class="note mb-2 mt-0.5 text-[12.5px] leading-4 text-muted">
+                Three read-only tools, scoped to your library.
+              </p>
+              <ul class="divide-y divide-line/60 overflow-hidden rounded-control border border-line bg-paper">
+                <For each={MCP_TOOLS}>
+                  {(t) => (
+                    <li class="flex items-start gap-3 px-3 py-2">
+                      <span class="data mt-px shrink-0 font-mono text-[11.5px] text-leaf-deep">{t.name}</span>
+                      <span class="text-[12.5px] leading-5 text-ink-soft">{t.desc}</span>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </div>
+
+            <div>
+              <h4 class="text-[13px] font-semibold tracking-[-0.01em] text-ink">How to connect</h4>
+              <p class="note mb-2 mt-0.5 text-[12.5px] leading-4 text-muted">
+                Point an MCP client at the URL below. The server must be running first.
+              </p>
+              <div class="space-y-3">
+                <Snippet label="Claude Desktop" code={claudeJson()} multiline />
+                <Snippet label="Claude Code" code={`claude mcp add vectile --transport sse ${mcpUrl()}`} />
+                <Snippet label="Any MCP SSE client" code={mcpUrl()} />
+              </div>
+            </div>
           </Section>
         </div>
       </Show>

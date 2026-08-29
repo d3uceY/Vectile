@@ -25,6 +25,7 @@ export class Config {
     "git_commit_subject_blacklist": string[];
     "search_defaults": SearchDefaults;
     "gui": GUIConfig;
+    "mcp": MCPConfig;
 
     /** Creates a new Config instance. */
     constructor($$source: Partial<Config> = {}) {
@@ -76,6 +77,9 @@ export class Config {
         if (!("gui" in $$source)) {
             this["gui"] = (new GUIConfig());
         }
+        if (!("mcp" in $$source)) {
+            this["mcp"] = (new MCPConfig());
+        }
 
         Object.assign(this, $$source);
     }
@@ -93,6 +97,7 @@ export class Config {
         const $$createField13_0 = $$createType0;
         const $$createField14_0 = $$createType2;
         const $$createField15_0 = $$createType3;
+        const $$createField16_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("obsidian_vaults" in $$parsedSource) {
             $$parsedSource["obsidian_vaults"] = $$createField5_0($$parsedSource["obsidian_vaults"]);
@@ -120,6 +125,9 @@ export class Config {
         }
         if ("gui" in $$parsedSource) {
             $$parsedSource["gui"] = $$createField15_0($$parsedSource["gui"]);
+        }
+        if ("mcp" in $$parsedSource) {
+            $$parsedSource["mcp"] = $$createField16_0($$parsedSource["mcp"]);
         }
         return new Config($$parsedSource as Partial<Config>);
     }
@@ -154,6 +162,36 @@ export class GUIConfig {
     static createFrom($$source: any = {}): GUIConfig {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new GUIConfig($$parsedSource as Partial<GUIConfig>);
+    }
+}
+
+/**
+ * MCPConfig holds the in-app MCP (Model Context Protocol) server settings.
+ * The server binds to 127.0.0.1 only, exposing read-only search tools to AI
+ * clients on the same machine.
+ */
+export class MCPConfig {
+    "enabled": boolean;
+    "port": number;
+
+    /** Creates a new MCPConfig instance. */
+    constructor($$source: Partial<MCPConfig> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("port" in $$source)) {
+            this["port"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MCPConfig instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MCPConfig {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MCPConfig($$parsedSource as Partial<MCPConfig>);
     }
 }
 
@@ -198,3 +236,4 @@ const $$createType0 = $Create.Array($Create.Any);
 const $$createType1 = $Create.Map($Create.Any, $$createType0);
 const $$createType2 = SearchDefaults.createFrom;
 const $$createType3 = GUIConfig.createFrom;
+const $$createType4 = MCPConfig.createFrom;

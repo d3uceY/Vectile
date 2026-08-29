@@ -10,6 +10,7 @@ import type {
   IndexFileProgress,
   IndexProgress,
   IndexState,
+  MCPStatus,
   ModelInfo,
   ModelState,
   SearchFilters,
@@ -101,6 +102,17 @@ export function createAppStore() {
   const [collections, setCollections] = createSignal<Collection[]>([]);
   const [config, setConfig] = createSignal<AppConfig | null>(null);
   const [models, setModels] = createSignal<ModelInfo[]>([]);
+
+  // Live state of the in-app MCP server (running / port / URL). Seeded on
+  // mount and updated by the mcp:status event the backend emits on start/stop.
+  const [mcpStatus, setMCPStatus] = createSignal<MCPStatus | null>(null);
+  const refreshMCP = async () => {
+    try {
+      setMCPStatus(await api.getMCPStatus());
+    } catch {
+      /* backend not ready yet */
+    }
+  };
 
   // Library / Browse data (loaded on demand)
   const [sources, setSources] = createSignal<Source[]>([]);
@@ -263,7 +275,11 @@ export function createAppStore() {
   };
 
   // Persist the settings draft to the backend and mark it clean. Called from
-  // the Settings view's own Save button and from the leave dialog.
+  // the Settings view's own Save button and from the leave dialog. Then
+  // reconcile the MCP server with the draft: stop it if it is running but
+  // should not be (or the port changed), then start it if enabled. The
+  // backend's StartServer/StopServer are idempotent, so saving unrelated
+  // settings is harmless.
   const saveSettings = async () => {
     const d = settingsDraft();
     if (!d) return;
@@ -271,6 +287,23 @@ export function createAppStore() {
     setConfig(d);
     setSettingsDirty(false);
     await refresh();
+    const st = mcpStatus();
+    const wantRunning = d.mcp.enabled;
+    const portChanged = Boolean(st?.running && st.port !== d.mcp.port);
+    if (st?.running && (!wantRunning || portChanged)) {
+      await api.stopMCP();
+    }
+    if (wantRunning) {
+      try {
+        const url = await api.startMCP(d.mcp.port);
+        if (!st?.running) pushToast(`MCP server on ${url}`, "success");
+        void refreshMCP();
+      } catch (err) {
+        pushToast(`MCP server failed to start: ${err}`, "danger");
+      }
+    } else {
+      void refreshMCP();
+    }
     pushToast("Settings saved", "success");
   };
 
@@ -560,6 +593,11 @@ export function createAppStore() {
     void refresh();
     void loadModels();
   });
+  // MCP server started/stopped (from Settings save or a model-switch path);
+  // keeps the Settings status plate live without polling.
+  const offMCP = Events.On("mcp:status", (ev) => {
+    setMCPStatus(ev.data as MCPStatus);
+  });
 
   // A freshly loaded frontend has no idea the backend is mid-index (events
   // emitted before it subscribed are lost), so on mount we ask the backend for
@@ -591,6 +629,7 @@ export function createAppStore() {
     void loadModels();
     void hydrateIndexing();
     void loadCPUCount();
+    void refreshMCP();
   });
   onCleanup(() => {
     offProgress();
@@ -600,6 +639,7 @@ export function createAppStore() {
     offAllDone();
     offPruned();
     offModelChanged();
+    offMCP();
   });
 
   return {
@@ -611,6 +651,8 @@ export function createAppStore() {
     collections,
     config,
     models,
+    mcpStatus,
+    refreshMCP,
     loadModels,
     setActiveModel,
     deleteModel,

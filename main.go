@@ -12,6 +12,7 @@ import (
 	"vectile/backend/config"
 	"vectile/backend/db"
 	"vectile/backend/embeddings"
+	"vectile/backend/mcp"
 	"vectile/backend/parser"
 	"vectile/backend/services"
 	"vectile/backend/startup"
@@ -50,6 +51,10 @@ func main() {
 		Embedder: embeddings.NewEmbedder(modelPath, 0, 0),
 	}
 
+	// The in-app MCP server: exposed to the frontend and auto-started below
+	// when the user has enabled it in Settings. Binds to 127.0.0.1 only.
+	mcpSvc := mcp.NewMCPService(core)
+
 	app := application.New(application.Options{
 		Name:        "vectile",
 		Description: "A local, private search across everything you've written, read, and kept.",
@@ -58,6 +63,7 @@ func main() {
 			application.NewService(services.NewSearchService(core)),
 			application.NewService(services.NewIndexService(core)),
 			application.NewService(services.NewModelService(core)),
+			application.NewService(mcpSvc),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -108,6 +114,14 @@ func main() {
 	// active model's embedding dimension changed.
 	if err := services.NewModelService(core).ApplyActiveModel(); err != nil {
 		log.Fatalf("apply active model: %v", err)
+	}
+
+	// Auto-start the MCP server when the user enabled it in Settings. A busy
+	// port logs a warning but never blocks launch.
+	if cfg.MCP.Enabled {
+		if _, err := mcpSvc.StartServer(cfg.MCP.Port); err != nil {
+			log.Printf("mcp auto-start: %v", err)
+		}
 	}
 
 	// Auto-reindex: poll the config each minute; fire an index-all when the

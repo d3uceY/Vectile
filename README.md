@@ -97,11 +97,17 @@ Five views, keyboard-first:
 - **Library**: every collection with its file and chunk counts and the last time it was indexed; expand one to list its files.
 - **Browse**: a file tree of collections, files, and chunks, with a preview pane.
 - **Index**: run "Index new" (only changed files) or "Re-index all" (re-embed everything) per collection, or index all collections at once, with live progress.
-- **Settings**: sources, model, chunking, search defaults, auto-reindex, and start-on-login.
+- **Settings**: sources, model, chunking, search defaults, auto-reindex, start-on-login, and a Connect section that runs a local MCP server for AI assistants.
 
 The sidebar shows the model state: idle, loaded, or failed. If the model file is missing or corrupt, vector search falls back to full-text search, so exact-word matches still work.
 
 Files you delete get pruned automatically, so results don't go stale. Auto-reindex, if enabled, re-indexes everything on a timer. Start-on-login launches the app with your session. The status strip shows when the library was last indexed; when auto-reindex is off and that date is more than a day old, Search quietly suggests a re-index.
+
+### AI assistants (MCP)
+
+Settings → Connect runs a local MCP (Model Context Protocol) server on `127.0.0.1:31123`. It is read-only: it exposes search and collection tools only, so an AI assistant on your machine can query your library but never change it. The server binds to loopback only, so nothing leaves the machine.
+
+Point Claude Desktop, Claude Code, or any MCP client at `http://127.0.0.1:31123/sse` to search your library from the assistant. The Settings section shows the live server status, the three tools it serves, and per-client setup directions.
 
 ## How search works
 
@@ -141,6 +147,8 @@ Config file: `<os.UserConfigDir()>/vectile/config.json`
 | gui.auto_reindex | false | Enable periodic re-indexing |
 | gui.auto_reindex_interval_minutes | 60 | Minutes between auto-reindex runs |
 | gui.start_on_login | false | Launch at login |
+| mcp.enabled | false | Serve read-only MCP search tools to local AI assistants on launch |
+| mcp.port | 31123 | Port the MCP server listens on (127.0.0.1 only) |
 
 ## Tech stack
 

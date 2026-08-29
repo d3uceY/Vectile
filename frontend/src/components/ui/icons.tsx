@@ -168,3 +168,19 @@ export const SlashIcon = (p: IconProps) => (
     <path d="m5.5 5.5 13 13" />
   </Icon>
 );
+
+export const PlugIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 2v6" />
+    <path d="M15 2v6" />
+    <path d="M6 8h12v3a6 6 0 0 1-12 0V8Z" />
+    <path d="M12 17v5" />
+  </Icon>
+);
+
+export const CopyIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+  </Icon>
+);

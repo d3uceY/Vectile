@@ -28,6 +28,14 @@ type GUIConfig struct {
 	StartOnLogin               bool `json:"start_on_login"`
 }
 
+// MCPConfig holds the in-app MCP (Model Context Protocol) server settings.
+// The server binds to 127.0.0.1 only, exposing read-only search tools to AI
+// clients on the same machine.
+type MCPConfig struct {
+	Enabled bool `json:"enabled"`
+	Port    int  `json:"port"`
+}
+
 // Config is the full application configuration.
 type Config struct {
 	EmbeddingModel            string              `json:"embedding_model"`
@@ -46,6 +54,7 @@ type Config struct {
 	GitCommitSubjectBlacklist []string            `json:"git_commit_subject_blacklist"`
 	SearchDefaults            SearchDefaults      `json:"search_defaults"`
 	GUI                       GUIConfig           `json:"gui"`
+	MCP                       MCPConfig           `json:"mcp"`
 
 	disabledSet map[string]struct{}
 }
@@ -177,6 +186,7 @@ func Save(cfg *Config, path string) error {
 	existing["git_commit_subject_blacklist"] = cfg.GitCommitSubjectBlacklist
 	existing["search_defaults"] = cfg.SearchDefaults
 	existing["gui"] = cfg.GUI
+	existing["mcp"] = cfg.MCP
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
@@ -220,6 +230,10 @@ func defaults() *Config {
 			AutoReindex:                false,
 			AutoReindexIntervalMinutes: 60,
 			StartOnLogin:               false,
+		},
+		MCP: MCPConfig{
+			Enabled: false,
+			Port:    31123,
 		},
 	}
 }

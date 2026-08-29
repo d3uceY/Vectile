@@ -103,6 +103,19 @@ export interface GUIConfig {
   start_on_login: boolean;
 }
 
+/** Mirrors config.MCPConfig (in-app MCP server settings). */
+export interface MCPConfig {
+  enabled: boolean;
+  port: number;
+}
+
+/** Mirrors mcp.MCPStatus (live server state from the backend). */
+export interface MCPStatus {
+  running: boolean;
+  port: number;
+  url: string;
+}
+
 export interface AppConfig {
   embedding_model: string;
   active_model: string;
@@ -120,6 +133,7 @@ export interface AppConfig {
   git_commit_subject_blacklist: string[];
   search_defaults: SearchDefaults;
   gui: GUIConfig;
+  mcp: MCPConfig;
 }
 
 /** Mirrors services.IndexProgress / IndexComplete (indexing events). */

@@ -30,6 +30,9 @@ const M = {
   SetActiveModel: 859586252,
   DeleteModel: 3374659369,
   UpdateModelSettings: 2688418022,
+  GetMCPStatus: 2163182986,
+  StartServer: 4062741143,
+  StopServer: 2204354075,
 };
 
 const MODEL_NAME = "bge-m3";
@@ -68,7 +71,12 @@ const config = {
   git_commit_subject_blacklist: ["^Merge ", "^fixup! ", "^WIP "],
   search_defaults: { top_k: 12, rrf_k: 60, vector_weight: 1.0, fts_weight: 1.0 },
   gui: { auto_reindex: false, auto_reindex_interval_minutes: 60, start_on_login: false },
+  mcp: { enabled: true, port: 31123 },
 };
+
+// Live MCP server state returned by GetMCPStatus; StartServer/StopServer
+// mutate it so the Settings status plate reacts in the browser.
+let mcp = { running: true, port: 31123, url: "http://127.0.0.1:31123/sse" };
 
 // ---------------------------------------------------------------------------
 // Models (installed embedding models)
@@ -266,6 +274,17 @@ export async function stub(request) {
       return { body: searchResults };
     case M.GetConfig:
       return { body: config };
+    case M.GetMCPStatus:
+      return { body: mcp };
+    case M.StartServer: {
+      const port = post.args?.args?.[0] ?? 31123;
+      mcp = { running: true, port, url: `http://127.0.0.1:${port}/sse` };
+      // String return: JSON-encode so the runtime's res.json() gets a quoted value.
+      return { body: JSON.stringify(mcp.url) };
+    }
+    case M.StopServer:
+      mcp = { ...mcp, running: false, url: "" };
+      return { body: true };
     case M.GetIndexingState:
       // The screenshot stub is idle; the real backend reports an active run so
       // a freshly loaded frontend can rebuild the indexing UI after a reload.
