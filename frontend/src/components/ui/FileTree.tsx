@@ -195,8 +195,8 @@ export function FileTree(props: {
               <Show when={indicator && row.depth > 0}>
                 <span
                   aria-hidden="true"
-                  class="pointer-events-none absolute inset-y-0 w-px bg-line-strong/70"
-                  style={{ left: `${8 + row.depth * 16}px` }}
+                  class="pointer-events-none absolute inset-y-0 right-7! w-px bg-line-strong"
+                  style={{ left: `${8 + row.depth * 13}px` }}
                 />
               </Show>
               <Show when={props.checkable && !row.hasChildren}>
