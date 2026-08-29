@@ -276,10 +276,9 @@
   .index-progress__shine {
     position: absolute;
     top: -60%;
-    left: -50%;
-    width: 290%;
+    left: 0; 
+    width: 100%;
     height: 200%;
-    transform: rotate(12deg);
     background-image: linear-gradient(
       to right,
       transparent 0%,
