@@ -40,6 +40,10 @@ func NewMCPService(core *services.Core) *MCPService { return &MCPService{core: c
 // connection URL clients should use. Starting an already-running server is a
 // no-op that returns the current URL.
 func (s *MCPService) StartServer(port int) (string, error) {
+	if port < 1 || port > 65535 {
+		return "", fmt.Errorf("invalid port %d: use a value in 1..65535", port)
+	}
+
 	s.mu.Lock()
 	if s.running {
 		url := s.url()

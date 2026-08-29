@@ -54,3 +54,17 @@ func TestStartServerServesSSE(t *testing.T) {
 		t.Fatal("expected stopped after StopServer")
 	}
 }
+
+// TestStartServerRejectsBadPort guards against a 0 or oversized port silently
+// binding an ephemeral socket while reporting a wrong :0/sse URL.
+func TestStartServerRejectsBadPort(t *testing.T) {
+	svc := NewMCPService(&services.Core{})
+	for _, port := range []int{0, -1, 65536} {
+		if _, err := svc.StartServer(port); err == nil {
+			t.Errorf("StartServer(%d) should have errored", port)
+		}
+	}
+	if st := svc.GetMCPStatus(); st.Running {
+		t.Fatal("server should not be running after rejected starts")
+	}
+}

@@ -572,6 +572,7 @@ const cloneCfg = (c: AppConfig): AppConfig => ({
   git_commit_subject_blacklist: [...c.git_commit_subject_blacklist],
   search_defaults: { ...c.search_defaults },
   gui: { ...c.gui },
+  mcp: { ...c.mcp },
 });
 
 /** Clamp a freshly loaded config into the hard bounds so out-of-range values
