@@ -2,9 +2,9 @@
 //
 // The banner is drawn in the app's "field notebook" world: paper ground,
 // graph-paper dots, hairline borders, one leaf-green accent, a serif-italic
-// tagline, and mono data lines. The app logo is embedded as a resized inline
-// PNG so the banner is fully self-contained (renders on GitHub, no repo
-// cross-references) and always matches the real icon.
+// tagline, and mono data lines. The animated mascot is embedded as a raw
+// WebP (so it loops inside the SVG) and the app's original logo sits at the
+// top; both are inlined so the banner is self-contained for GitHub.
 //
 // Run:  node scripts/make-banner.mjs
 
@@ -21,22 +21,26 @@ const require = createRequire(
 const { chromium } = require("playwright");
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const mascotPath = path.join(root, "docs", "vectile-mascot.webp");
 const logoPath = path.join(root, "frontend", "public", "vectile-logo.png");
 const outPath = path.join(root, "docs", "vectile-banner.svg");
-const LOGO_TILE = 160; // render the 500px logo down to 160 for the inline PNG (shown at 88px)
+const LOGO_MARK = 48; // original logo resized down for the top-left mark
 
-const png = await readFile(logoPath);
-const b64 = png.toString("base64");
+// The animated mascot is embedded as its raw WebP so it keeps animating inside
+// the SVG. Resizing it through a canvas would collapse it to a single frame.
+const webp = await readFile(mascotPath);
+const webpB64 = webp.toString("base64");
 
-// Resize the logo via a canvas so the embedded PNG stays lean.
+// Resize the original logo for the top-left mark via a canvas.
+const logoPng = await readFile(logoPath);
+const logoB64 = logoPng.toString("base64");
+
 const browser = await chromium.launch();
 const page = await browser.newPage();
-// Canvas must match the drawn size, or toDataURL exports a larger PNG with the
-// logo crammed into the top-left and a transparent region to the right/bottom.
 await page.setContent(
-  `<canvas id="c" width="${LOGO_TILE}" height="${LOGO_TILE}"></canvas>`,
+  `<canvas id="c" width="${LOGO_MARK}" height="${LOGO_MARK}"></canvas>`,
 );
-const dataUri = await page.evaluate(
+const logoDataUri = await page.evaluate(
   ({ b64, size }) => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -52,7 +56,7 @@ const dataUri = await page.evaluate(
       img.src = "data:image/png;base64," + b64;
     });
   },
-  { b64, size: LOGO_TILE },
+  { b64: logoB64, size: LOGO_MARK },
 );
 await browser.close();
 
@@ -65,7 +69,6 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.
     <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse">
       <circle cx="1.25" cy="1.25" r="1.25" fill="#1b2226" opacity="0.06"/>
     </pattern>
-    <clipPath id="logo-clip"><rect x="72" y="206" width="88" height="88" rx="14"/></clipPath>
   </defs>
 
   <!-- paper ground + graph-paper dots -->
@@ -75,33 +78,35 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.
   <!-- hairline frame -->
   <rect x="0.5" y="0.5" width="1439" height="499" fill="none" stroke="#e4e8ec"/>
 
-  <!-- logo tile: mint fill, the real mark on top, hairline border -->
-  <g clip-path="url(#logo-clip)">
-    <rect x="72" y="206" width="88" height="88" fill="#e5f6ec"/>
-    <image x="72" y="206" width="88" height="88" preserveAspectRatio="xMidYMid meet"
-           href="${dataUri}" xlink:href="${dataUri}"/>
-  </g>
-  <rect x="72" y="206" width="88" height="88" rx="14" fill="none" stroke="#d1d8de"/>
+  <!-- app's original logo at the top of the banner -->
+  <image x="82" y="48" width="${LOGO_MARK}" height="${LOGO_MARK}" preserveAspectRatio="xMidYMid meet"
+         href="${logoDataUri}" xlink:href="${logoDataUri}"/>
+
+  <!-- animated mascot on a white card (matches the WebP backdrop) -->
+  <rect x="80" y="126" width="160" height="160" rx="20" fill="#ffffff" stroke="#d1d8de"/>
+  <image x="102" y="148" width="116" height="116" preserveAspectRatio="xMidYMid meet"
+         href="data:image/webp;base64,${webpB64}" xlink:href="data:image/webp;base64,${webpB64}"/>
 
   <!-- wordmark -->
-  <text x="184" y="252" font-family="${sans}" font-size="46" font-weight="700" letter-spacing="-1.2" fill="#1b2226">vectile</text>
+  <text x="272" y="214" font-family="${sans}" font-size="52" font-weight="700" letter-spacing="-1.2" fill="#1b2226">vectile</text>
 
   <!-- serif-italic tagline + leaf underscore -->
-  <text x="187" y="301" font-family="${serif}" font-style="italic" font-size="23" fill="#56616b">your private library</text>
-  <rect x="190" y="316" width="42" height="3" rx="1.5" fill="#1f8a50"/>
+  <text x="276" y="270" font-family="${serif}" font-style="italic" font-size="23" fill="#56616b">your private library</text>
+  <rect x="280" y="286" width="46" height="3" rx="1.5" fill="#1f8a50"/>
 
   <!-- vertical hairline between the lockup and the data block -->
-  <line x1="1000" y1="128" x2="1000" y2="372" stroke="#e4e8ec"/>
+  <line x1="1010" y1="118" x2="1010" y2="382" stroke="#e4e8ec"/>
 
-  <!-- right data block: all local + mono notes -->
-  <circle cx="1140" cy="150" r="4" fill="#1f8a50"/>
-  <text x="1154" y="155" font-family="${mono}" font-size="15" fill="#56616b">all local</text>
+  <!-- right data block: left accent rule + prominent all-local -->
+  <rect x="1076" y="126" width="4" height="232" rx="2" fill="#1f8a50"/>
+  <text x="1108" y="156" font-family="${sans}" font-size="19" font-weight="600" fill="#1f8a50">all local</text>
 
-  <text x="1140" y="225" font-family="${mono}" font-size="15" fill="#66707a">hybrid search — vector + full-text</text>
-  <text x="1140" y="253" font-family="${mono}" font-size="15" fill="#66707a">bge-m3 embeddings, in-process</text>
-  <text x="1140" y="281" font-family="${mono}" font-size="15" fill="#66707a">nothing leaves this machine</text>
+  <text x="1108" y="200" font-family="${mono}" font-size="14" fill="#1b2226">hybrid search — vector + full-text</text>
+  <text x="1108" y="228" font-family="${mono}" font-size="14" fill="#1b2226">bge-m3 embeddings, in-process</text>
+  <text x="1108" y="256" font-family="${mono}" font-size="14" fill="#1b2226">nothing leaves this machine</text>
 
-  <text x="1140" y="360" font-family="${mono}" font-size="13" fill="#66707a">jump to search · ⌘K</text>
+  <line x1="1108" y1="282" x2="1396" y2="282" stroke="#e4e8ec"/>
+  <text x="1108" y="324" font-family="${mono}" font-size="12" fill="#66707a">jump to search · ⌘K</text>
 </svg>
 `;
 
