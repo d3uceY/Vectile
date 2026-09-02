@@ -80,7 +80,7 @@ Open in the OS. AppService exposes `OpenFile` and `RevealInFolder`; the per-OS c
 
 9. vec_quantize_binary works on modernc. I Ire not sure sqlite-vec's binary quantization would work under the pure-Go driver. The db test queries `vec_documents_bin` with `embedding MATCH vec_quantize_binary(?)` and it returns rows. FTS5 also works. If it had not, the plan was to drop the binary mirror and use float-only KNN.
 
-10. The language server flags darwin (and sometimes linux). The Problems panel shows "undefined: llama.Model" and tree-sitter import errors tagged `[darwin]`/`[linux]`. These are usually not real: gopls cross-checks other GOOS targets, but it can't resolve the llama-go archives unless those OS archives exist in `third_party/llama-go/<os>/<arch>/`. Once you add the per-OS archives (see `scripts/build-llamago-archives.sh`), the matching OS targets resolve; the host build, vet and tests still pass regardless.
+10. The language server flags darwin (and sometimes linux). The Problems panel shows "undefined: llama.Model" and tree-sitter import errors tagged `[darwin]`/`[linux]`. These are usually not real: gopls cross-checks other GOOS targets, but it can't resolve the llama-go archives unless those OS archives exist in `third_party/llama-go/<os>/<arch>/`. The release workflow builds the Linux/macOS archives on its runners; for a local gopls run, build them with `scripts/build-llamago-archives.sh` so the matching OS targets resolve. The host build, vet and tests still pass regardless.
 
 11. Tailwind class suggestions. The linter suggested `text-ink/10` over `text-ink/[0.10]` and `max-w-245` over `max-w-[61.25rem]`. I applied the one I introduced and left the pre-existing ones alone.
 
@@ -88,9 +88,11 @@ Open in the OS. AppService exposes `OpenFile` and `RevealInFolder`; the per-OS c
 
 ## Building and running
 
-The llama-go build needs the cgo environment. Archives are committed per-OS/per-arch in
-`third_party/llama-go/{windows,linux,darwin}/<arch>/`; the cgo `LDFLAGS` select the right one via
-`linkage_<os>_<arch>.go` (`-L./<os>/<arch>`). See `docs/BUILD-AND-PACKAGING.md` for the full matrix.
+The llama-go build needs the cgo environment. Only the Windows archives are committed under
+`third_party/llama-go/windows/amd64/`; the Linux and macOS archives are built on the release runner
+before `go build` (the vendored `llama.cpp/` is headers-only, so they can't be committed from one
+machine). The cgo `LDFLAGS` pick the right set via `linkage_<os>_<arch>.go` (`-L./<os>/<arch>`).
+See `docs/BUILD-AND-PACKAGING.md` for the full matrix.
 
 - **Windows:** MinGW-w64 `bin` on `PATH` (WinLibs); `LIBRARY_PATH` → `third_party/llama-go/windows/amd64`,
   `C_INCLUDE_PATH` → `third_party/llama-go`. The Windows build task sets these. For `wails3 dev`, set
@@ -103,7 +105,11 @@ The llama-go build needs the cgo environment. Archives are committed per-OS/per-
 - **macOS (universal):** Xcode CLT (`clang`/`clang++`); `LIBRARY_PATH` →
   `third_party/llama-go/darwin/<arch>`. Metal/Accelerate frameworks are OS-provided.
 
-Rebuilding the archives for a new OS/arch: `LLAMA_GO_REF=<ref> ./scripts/build-llamago-archives.sh`
-(clones the matching llama.go source, builds llama.cpp, installs the `.a` files, then commit them).
+Rebuilding the archives for a new OS/arch: `./scripts/build-llamago-archives.sh`. It auto-detects the
+llama-go ref whose `wrapper.h` matches the vendored copy (tries HEAD, then tags newest-first);
+`LLAMA_GO_REF=<ref>` pins and verifies it instead. `GOARCH=amd64|arm64` overrides the detected arch
+for cross-builds (e.g. build the x86_64 macOS archives on an ARM64 runner). It clones the matching
+llama.go source, builds llama.cpp, and installs the `.a` files into `third_party/llama-go/<os>/<arch>/`
+so `go build` can link; commit them or let the CI runner build them per release.
 
 Tests: `go test ./backend/...`. The model-dependent tests skip when the model is not in `models/`.

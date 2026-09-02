@@ -185,17 +185,36 @@ fi
 ar crs "$TMP/libbinding.a" "$TMP/wrapper.o"
 
 echo "==> Installing archives to $DEST"
+
+# Locate each built archive by name rather than hardcoding a path, because the
+# cmake output name can be either "lib<base>.a" or "<base>.a" depending on the
+# llama.cpp version/backend. Abort if an archive is missing so a build that did
+# not produce a needed library fails loudly here instead of at `go build` link.
+install_archive() {
+  local base="$1" dest="$2"
+  local src
+  src="$(find "$BUILD" -name "lib${base}.a" -print -quit 2>/dev/null)"
+  if [ -z "$src" ]; then
+    src="$(find "$BUILD" -name "${base}.a" -print -quit 2>/dev/null)"
+  fi
+  if [ -z "$src" ] || [ ! -f "$src" ]; then
+    echo "ERROR: could not find archive for '${base}' under $BUILD" >&2
+    exit 1
+  fi
+  cp "$src" "$DEST/$dest"
+}
+
 mkdir -p "$DEST"
-cp "$BUILD/common/libllama-common.a"      "$DEST/libllama-common.a"
-cp "$BUILD/common/libllama-common-base.a" "$DEST/libllama-common-base.a"
-cp "$BUILD/src/libllama.a"                "$DEST/libllama.a"
-cp "$BUILD/ggml/src/ggml.a"               "$DEST/libggml.a"
-cp "$BUILD/ggml/src/ggml-base.a"          "$DEST/libggml-base.a"
-cp "$BUILD/ggml/src/ggml-cpu.a"           "$DEST/libggml-cpu.a"
-cp "$TMP/libbinding.a"                    "$DEST/libbinding.a"
+install_archive llama-common      libllama-common.a
+install_archive llama-common-base libllama-common-base.a
+install_archive llama             libllama.a
+install_archive ggml              libggml.a
+install_archive ggml-base         libggml-base.a
+install_archive ggml-cpu          libggml-cpu.a
+cp "$TMP/libbinding.a" "$DEST/libbinding.a"
 if [ "$OS" = "darwin" ]; then
-  cp "$BUILD/ggml/src/ggml-metal.a" "$DEST/libggml-metal.a" || true
-  cp "$BUILD/ggml/src/ggml-blas.a"  "$DEST/libggml-blas.a"  || true
+  install_archive ggml-metal libggml-metal.a
+  install_archive ggml-blas  libggml-blas.a
 fi
 
 echo "==> Done. Installed archives:"

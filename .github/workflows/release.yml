@@ -323,8 +323,8 @@ jobs:
           CGO_ENABLED: "1"
           GOOS: darwin
           GOARCH: arm64
-          CGO_CFLAGS: "-mmacosx-version-min=12.0"
-          CGO_LDFLAGS: "-mmacosx-version-min=12.0"
+          CGO_CFLAGS: "-mmacosx-version-min=12.0 -arch arm64"
+          CGO_LDFLAGS: "-mmacosx-version-min=12.0 -arch arm64"
           MACOSX_DEPLOYMENT_TARGET: "12.0"
           LIBRARY_PATH: ${{ github.workspace }}/third_party/llama-go/darwin/arm64
           C_INCLUDE_PATH: ${{ github.workspace }}/third_party/llama-go
@@ -337,8 +337,8 @@ jobs:
           CGO_ENABLED: "1"
           GOOS: darwin
           GOARCH: amd64
-          CGO_CFLAGS: "-mmacosx-version-min=12.0"
-          CGO_LDFLAGS: "-mmacosx-version-min=12.0"
+          CGO_CFLAGS: "-mmacosx-version-min=12.0 -arch x86_64"
+          CGO_LDFLAGS: "-mmacosx-version-min=12.0 -arch x86_64"
           MACOSX_DEPLOYMENT_TARGET: "12.0"
           LIBRARY_PATH: ${{ github.workspace }}/third_party/llama-go/darwin/amd64
           C_INCLUDE_PATH: ${{ github.workspace }}/third_party/llama-go
