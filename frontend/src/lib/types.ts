@@ -97,10 +97,18 @@ export interface SearchDefaults {
   fts_weight: number;
 }
 
+/** Mirrors config.MascotConfig (sidebar-mascot display settings). */
+export interface MascotConfig {
+  show_searching: boolean;
+  show_indexing: boolean;
+  show_nothing: boolean;
+}
+
 export interface GUIConfig {
   auto_reindex: boolean;
   auto_reindex_interval_minutes: number;
   start_on_login: boolean;
+  mascot: MascotConfig;
 }
 
 /** Mirrors config.MCPConfig (in-app MCP server settings). */

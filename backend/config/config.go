@@ -21,11 +21,21 @@ type SearchDefaults struct {
 	FTSWeight    float64 `json:"fts_weight"`
 }
 
+// MascotConfig controls which sidebar-mascot (Vexter) interactions are shown.
+// Each flag gates one resting-state trigger; all three off hides Vexter for
+// every moment at once.
+type MascotConfig struct {
+	ShowSearching bool `json:"show_searching"`
+	ShowIndexing  bool `json:"show_indexing"`
+	ShowNothing   bool `json:"show_nothing"`
+}
+
 // GUIConfig holds app-level (non-source) settings.
 type GUIConfig struct {
-	AutoReindex                bool `json:"auto_reindex"`
-	AutoReindexIntervalMinutes int  `json:"auto_reindex_interval_minutes"`
-	StartOnLogin               bool `json:"start_on_login"`
+	AutoReindex                bool         `json:"auto_reindex"`
+	AutoReindexIntervalMinutes int          `json:"auto_reindex_interval_minutes"`
+	StartOnLogin               bool         `json:"start_on_login"`
+	Mascot                     MascotConfig `json:"mascot"`
 }
 
 // MCPConfig holds the in-app MCP (Model Context Protocol) server settings.
@@ -230,6 +240,11 @@ func defaults() *Config {
 			AutoReindex:                false,
 			AutoReindexIntervalMinutes: 60,
 			StartOnLogin:               false,
+			Mascot: MascotConfig{
+				ShowSearching: true,
+				ShowIndexing:  true,
+				ShowNothing:   true,
+			},
 		},
 		MCP: MCPConfig{
 			Enabled: false,

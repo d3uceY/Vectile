@@ -1,8 +1,8 @@
 import type { ActiveMascotState } from "./types";
 
 export const MASCOT_ASSETS: Record<ActiveMascotState, string> = {
-  searching: "/vectile-mascot-idle.webp",
-  indexing: "/vectile-mascot-indexing.webp",
+  searching: "/vectile-mascot-search.webp",
+  indexing: "/vectile-mascot-indexing-alt.webp",
   nothing: "/vectile-mascot-nothing.webp",
 };
 

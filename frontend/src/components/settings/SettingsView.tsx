@@ -1,7 +1,7 @@
 import { createEffect, createSignal, createUniqueId, For, Show, type JSX } from "solid-js";
 import { useAppStore } from "../../lib/store";
 import { importModel, pickFolder, pickModelFile } from "../../lib/api";
-import type { AppConfig, GUIConfig, MCPConfig, ModelInfo, SearchDefaults } from "../../lib/types";
+import type { AppConfig, GUIConfig, MascotConfig, MCPConfig, ModelInfo, SearchDefaults } from "../../lib/types";
 import { Button, ConfirmDialog, InfoTip, Select, StatusPill, Toggle, ViewHeading } from "../ui/primitives";
 import { CheckIcon, CloseIcon, CodeIcon, CopyIcon, FileIcon, FolderOpenIcon, LibraryIcon, PlugIcon, SlashIcon } from "../ui/icons";
 
@@ -546,6 +546,30 @@ function Snippet(props: { label: string; code: string; multiline?: boolean }) {
   );
 }
 
+/* A bare switch (no row chrome), for use inside compact list rows. Same
+   look and keyboard/screen-reader semantics as the primitives Toggle's
+   switch, so the Vexter rows are consistent with the rest of Settings. */
+function MascotSwitch(props: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={props.checked}
+      aria-label={props.label}
+      onClick={() => props.onChange(!props.checked)}
+      class={`relative h-6 w-10 shrink-0 rounded-full border transition-colors duration-150 ease-snappy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf/60 focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${
+        props.checked ? "border-leaf bg-leaf" : "border-line-strong bg-surface"
+      }`}
+    >
+      <span
+        class={`absolute left-0.5 top-0.5 h-4.5 w-4.5 rounded-full bg-white transition-transform duration-150 ease-snappy ${
+          props.checked ? "translate-x-4" : ""
+        }`}
+      />
+    </button>
+  );
+}
+
 /* The read-only MCP tools vectile serves, shown in the Connect section. */
 const MCP_TOOLS: { name: string; desc: string }[] = [
   {
@@ -556,6 +580,45 @@ const MCP_TOOLS: { name: string; desc: string }[] = [
   {
     name: "vectile_collection_info",
     desc: "Details for one collection: counts, source types, and sample titles.",
+  },
+];
+
+/* The three moments the sidebar mascot (Vexter) can appear for. The config key
+   is the per-state show/suppress flag; the preview shows the exact animated
+   webp the sidebar uses, with the shared static PNG under reduced motion. */
+const DEFAULT_MASCOT: MascotConfig = {
+  show_searching: true,
+  show_indexing: true,
+  show_nothing: true,
+};
+
+const MASCOT_STATES: {
+  key: keyof MascotConfig;
+  label: string;
+  desc: string;
+  anim: string;
+  static: string;
+}[] = [
+  {
+    key: "show_searching",
+    label: "Searching",
+    desc: "While a query runs",
+    anim: "/vectile-mascot-search.webp",
+    static: "/vectile-mascot.png",
+  },
+  {
+    key: "show_indexing",
+    label: "Indexing",
+    desc: "While a library rebuilds",
+    anim: "/vectile-mascot-indexing-alt.webp",
+    static: "/vectile-mascot.png",
+  },
+  {
+    key: "show_nothing",
+    label: "No results",
+    desc: "When a search comes up empty",
+    anim: "/vectile-mascot-nothing.webp",
+    static: "/vectile-mascot.png",
   },
 ];
 
@@ -571,7 +634,7 @@ const cloneCfg = (c: AppConfig): AppConfig => ({
   disabled_collections: [...c.disabled_collections],
   git_commit_subject_blacklist: [...c.git_commit_subject_blacklist],
   search_defaults: { ...c.search_defaults },
-  gui: { ...c.gui },
+  gui: { ...c.gui, mascot: { ...(c.gui.mascot ?? DEFAULT_MASCOT) } },
   mcp: { ...c.mcp },
 });
 
@@ -618,6 +681,8 @@ const sanitizeConfig = (cfg: AppConfig): AppConfig => {
   // The MCP block is absent from configs saved by older builds; default it.
   cfg.mcp = cfg.mcp ?? { enabled: false, port: 31123 };
   cfg.mcp.port = clamp(cfg.mcp.port, STATIC_BOUNDS.mcp_port.min, STATIC_BOUNDS.mcp_port.max);
+  // The mascot block is absent from configs saved by older builds; default it.
+  cfg.gui.mascot = cfg.gui.mascot ?? { ...DEFAULT_MASCOT };
   return cfg;
 };
 
@@ -698,6 +763,27 @@ export function SettingsView() {
       }
       return { ...d, gui };
     });
+
+  // Vexter (sidebar mascot) display settings. setMascot(s) flips one state;
+  // setMascotAll(v) is the master switch — it turns every state on/off, so
+  // "Disable Vexter" (checked) hides the mascot for all three moments.
+  const setMascot = (k: keyof MascotConfig, v: boolean) =>
+    store.setSettingsDraft((d) => {
+      if (!d) return d;
+      return { ...d, gui: { ...d.gui, mascot: { ...d.gui.mascot, [k]: v } } };
+    });
+  const setMascotAll = (v: boolean) =>
+    store.setSettingsDraft((d) => {
+      if (!d) return d;
+      return {
+        ...d,
+        gui: { ...d.gui, mascot: { show_searching: !v, show_indexing: !v, show_nothing: !v } },
+      };
+    });
+  const mascotAllDisabled = () => {
+    const m = draft()?.gui.mascot;
+    return m ? !m.show_searching && !m.show_indexing && !m.show_nothing : false;
+  };
 
   // MCP server settings. Start/stop happen on save (saveSettings reconciles
   // the running server with the draft); this only edits the draft.
@@ -1164,6 +1250,40 @@ export function SettingsView() {
               description="Launch vectile when you sign in."
               hint="Launch vectile when you sign in, so it's already open and indexing before you need it."
             />
+          </Section>
+
+          <Section
+            title="Vexter"
+            note="The pixel dinosaur in the sidebar. It pokes up while your library works."
+          >
+            <Toggle
+              checked={mascotAllDisabled()}
+              onChange={(v) => setMascotAll(v)}
+              label="Disable Vexter"
+              description="Hide the mascot for every moment at once."
+              hint="Vexter is the small pixel dinosaur in the sidebar. When this is on, it never appears — whether you're searching, indexing, or turning up nothing."
+            />
+            <div class="divide-y divide-line/60 overflow-hidden rounded-control border border-line bg-paper">
+              <For each={MASCOT_STATES}>
+                {(s) => (
+                  <div class={`flex items-center gap-4 px-3 py-2.5 ${draft()!.gui.mascot[s.key] ? "" : "opacity-60"}`}>
+                    <div class="mascot-preview shrink-0">
+                      <img class="mascot-preview__anim" src={s.anim} alt="" draggable={false} />
+                      <img class="mascot-preview__static" src={s.static} alt="" draggable={false} />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-[13.5px] font-medium leading-tight text-ink">{s.label}</p>
+                      <p class="text-[12.5px] leading-5 text-muted">{s.desc}</p>
+                    </div>
+                    <MascotSwitch
+                      checked={draft()!.gui.mascot[s.key]}
+                      onChange={(v) => setMascot(s.key, v)}
+                      label={`Show Vexter: ${s.label.toLowerCase()}`}
+                    />
+                  </div>
+                )}
+              </For>
+            </div>
           </Section>
 
           <Section

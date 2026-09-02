@@ -140,6 +140,7 @@ export class GUIConfig {
     "auto_reindex": boolean;
     "auto_reindex_interval_minutes": number;
     "start_on_login": boolean;
+    "mascot": MascotConfig;
 
     /** Creates a new GUIConfig instance. */
     constructor($$source: Partial<GUIConfig> = {}) {
@@ -152,6 +153,9 @@ export class GUIConfig {
         if (!("start_on_login" in $$source)) {
             this["start_on_login"] = false;
         }
+        if (!("mascot" in $$source)) {
+            this["mascot"] = (new MascotConfig());
+        }
 
         Object.assign(this, $$source);
     }
@@ -160,7 +164,11 @@ export class GUIConfig {
      * Creates a new GUIConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): GUIConfig {
+        const $$createField3_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("mascot" in $$parsedSource) {
+            $$parsedSource["mascot"] = $$createField3_0($$parsedSource["mascot"]);
+        }
         return new GUIConfig($$parsedSource as Partial<GUIConfig>);
     }
 }
@@ -192,6 +200,40 @@ export class MCPConfig {
     static createFrom($$source: any = {}): MCPConfig {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new MCPConfig($$parsedSource as Partial<MCPConfig>);
+    }
+}
+
+/**
+ * MascotConfig controls which sidebar-mascot (Vexter) interactions are shown.
+ * Each flag gates one resting-state trigger; all three off hides Vexter for
+ * every moment at once.
+ */
+export class MascotConfig {
+    "show_searching": boolean;
+    "show_indexing": boolean;
+    "show_nothing": boolean;
+
+    /** Creates a new MascotConfig instance. */
+    constructor($$source: Partial<MascotConfig> = {}) {
+        if (!("show_searching" in $$source)) {
+            this["show_searching"] = false;
+        }
+        if (!("show_indexing" in $$source)) {
+            this["show_indexing"] = false;
+        }
+        if (!("show_nothing" in $$source)) {
+            this["show_nothing"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MascotConfig instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MascotConfig {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MascotConfig($$parsedSource as Partial<MascotConfig>);
     }
 }
 
@@ -237,3 +279,4 @@ const $$createType1 = $Create.Map($Create.Any, $$createType0);
 const $$createType2 = SearchDefaults.createFrom;
 const $$createType3 = GUIConfig.createFrom;
 const $$createType4 = MCPConfig.createFrom;
+const $$createType5 = MascotConfig.createFrom;
