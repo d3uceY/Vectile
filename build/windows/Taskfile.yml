@@ -63,10 +63,14 @@ tasks:
       GOOS: windows
       CGO_ENABLED: '1'
       GOARCH: '{{.ARCH | default ARCH}}'
-      # llama.go needs the MinGW C compiler on PATH and the llama-go root on
-      # the cgo search paths (wrapper.h + static archives live there).
+      # llama.go needs the MinGW C++ compiler on PATH and the llama-go archive
+      # dir on the cgo search paths. The per-OS/per-arch archives now live in
+      # third_party/llama-go/{windows,linux,darwin}/<arch>; on Windows the cgo
+      # LDFLAGS use -L./windows/amd64 (relative to the package dir), and
+      # LIBRARY_PATH mirrors it for the linker. C_INCLUDE_PATH stays at the
+      # llama-go root, which is where wrapper.h and the llama.cpp headers live.
       PATH: 'C:\Users\deuce\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\mingw64\bin;{{.PATH}}'
-      LIBRARY_PATH: '{{.ROOT_DIR}}/third_party/llama-go'
+      LIBRARY_PATH: '{{.ROOT_DIR}}/third_party/llama-go/windows/amd64'
       C_INCLUDE_PATH: '{{.ROOT_DIR}}/third_party/llama-go'
 
   build:docker:

@@ -30,6 +30,23 @@ else
     ./linuxdeploy-aarch64.AppImage --appdir "${APP_DIR}" --output appimage
 fi
 
+# llama.cpp is built with OpenMP, so the binary depends on libgomp.so.1 at
+# runtime. linuxdeploy may skip GCC runtime libs; bundle it explicitly so the
+# AppImage runs on systems without gcc.
+if [ -z "$(find "${APP_DIR}" -name 'libgomp.so.1*' -print -quit)" ]; then
+    LIBGOMP="$(ldconfig -p 2>/dev/null | awk '/libgomp\.so\.1/{print $NF; exit}' || true)"
+    if [ -z "${LIBGOMP}" ]; then
+        LIBGOMP="$(gcc -print-file-name=libgomp.so.1 2>/dev/null || true)"
+    fi
+    if [ -n "${LIBGOMP}" ] && [ -f "${LIBGOMP}" ]; then
+        mkdir -p "${APP_DIR}/usr/lib"
+        cp -L "${LIBGOMP}" "${APP_DIR}/usr/lib/libgomp.so.1"
+        echo "Bundled libgomp.so.1 into ${APP_DIR}/usr/lib"
+    else
+        echo "WARNING: could not find libgomp.so.1 to bundle" >&2
+    fi
+fi
+
 # Rename the generated AppImage
 mv "${APP_NAME}*.AppImage" "${APP_NAME}.AppImage"
 

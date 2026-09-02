@@ -1,0 +1,166 @@
+# Building and packaging vectile on Windows, Linux and macOS
+
+vectile runs the bge-m3 embedding model **in-process** through [`llama-go`](https://github.com/tcpipuk/llama-go),
+a CGO binding to llama.cpp. Because that pulls in native C/C++, every platform needs its own set
+of llama.cpp static archives at link time. The archives are **committed per-OS/per-arch** under
+`third_party/llama-go/<os>/<arch>/`, so a normal build only needs a suitable C/C++ compiler on
+`PATH` (plus `LIBRARY_PATH`/`C_INCLUDE_PATH` pointing at the llama-go root) - it never rebuilds
+llama.cpp.
+
+This document explains the layout, the one-off archive build, the per-platform prerequisites, and
+how each target is built, packaged and shipped.
+
+## What actually needs to be native
+
+- `third_party/llama-go` ships:
+  - `linkage_static.go` - the **shared** cgo include flags (`-I` paths, OS-agnostic).
+  - `linkage_<os>_<arch>.go` - the **per-OS/per-arch** cgo `LDFLAGS` (`-L` + lib list).
+  - `wrapper.cpp` / `wrapper.h` - the Go<->C++ bridge, compiled into `libbinding.a`.
+  - `llama.cpp/` - **headers only** (the public llama.cpp API that `wrapper.cpp` and the Go code
+    include). No `.c`/`.cpp` sources live here.
+- The llama.cpp **implementation** is compiled into the static archives in
+  `third_party/llama-go/<os>/<arch>/`.
+
+Because the archives are platform-specific (COFF on Windows, ELF on Linux, Mach-O on macOS), there
+is **no single "cross-compile for all three from one machine"** path for the C++ side. You build on
+(or for) each target.
+
+## The archive layout
+
+```
+third_party/llama-go/
+  windows/amd64/      libbinding.a, libllama.a, libllama-common*.a, libggml*.a   (MinGW/COFF)
+  linux/amd64/        same names, ELF                                            (gcc, OpenMP)
+  darwin/arm64/       same + libggml-metal.a + libggml-blas.a, arm64 Mach-O      (clang)
+  darwin/amd64/       same + libggml-metal.a + libggml-blas.a, x86_64 Mach-O
+```
+
+Each directory holds the archives that the matching cgo `linkage_*` file links (`-L./<os>/<arch>`).
+
+| Build tag file | Active on | Links |
+|---|---|---|
+| `linkage_windows_amd64.go` | `windows && amd64` | `... -lstdc++ -lm -lgomp` |
+| `linkage_linux_amd64.go`   | `linux && amd64`   | `... -lstdc++ -lm -lgomp` |
+| `linkage_darwin_arm64.go`  | `darwin && arm64`  | `... -lggml-metal -lggml-blas ... -framework Metal` |
+| `linkage_darwin_amd64.go`  | `darwin && amd64`  | `... -lggml-metal -lggml-blas ... -framework Metal` |
+
+### Runtime library dependencies
+
+| Platform | What the archive links to | What you ship |
+|---|---|---|
+| Windows | MinGW runtime (`libgcc_s`, `libstdc++`, `libwinpthread`, `libgomp`, `libdl`) | The 5 MinGW DLLs next to the exe (`build/windows/runtime`) |
+| Linux | `libgomp.so.1` (OpenMP) + `libstdc++` | Bundle `libgomp.so.1` in the AppImage; `Depends: libgomp1` + `libstdc++6` in the .deb |
+| macOS | Metal / Accelerate / BLAS (system frameworks) | Nothing - frameworks are OS-provided |
+
+## Rebuilding the llama.cpp archives (one-off, per OS/arch)
+
+The vendored `llama.cpp/` is headers-only, so creating archives for a new OS/arch requires a full
+llama.cpp source build. `scripts/build-llamago-archives.sh` does this and writes the finished `.a`
+files into `third_party/llama-go/<os>/<arch>/`. It is the bash analogue of the
+`llama-go-windows` skill's `reference/build.ps1`.
+
+```
+# Linux amd64
+LLAMA_GO_REF=<commit-or-tag> ./scripts/build-llamago-archives.sh
+
+# macOS arm64 (run on an Apple Silicon Mac)
+LLAMA_GO_REF=<commit-or-tag> ./scripts/build-llamago-archives.sh
+
+# macOS amd64 (run on an Intel Mac, or use a cross toolchain)
+LLAMA_GO_REF=<commit-or-tag> ./scripts/build-llamago-archives.sh
+```
+
+> **`LLAMA_GO_REF` is the one thing you must get exactly right.** It must be the llama-go
+> commit/tag whose `wrapper.h` is vendored in `third_party/llama-go`. The script clones that ref,
+> builds its `llama.cpp` submodule, then verifies the cloned `wrapper.h` matches the vendored one
+> (an ABI guard); it aborts if they differ, so keep trying refs until it passes. Commit the
+> resulting archives (only `bin/` is gitignored, `*.a` is not).
+
+Requirements: `gcc`/`g++` + `cmake` + `make` (or `ninja`) + `git` + `ar` on Linux; Xcode Command
+Line Tools on macOS. Linux builds configure with `GGML_OPENMP=ON` (that's why `libgomp` is needed
+at runtime); macOS builds with the Metal + BLAS backends on.
+
+## Building and packaging per platform
+
+The Wails task runner dispatches to the platform Taskfile via `GOOS` (see the root `Taskfile.yml`):
+
+```
+task build       # build the binary for the current OS  (GOOS=<host>)
+task package     # build + package an installer for the current OS
+task dev         # run in development mode
+```
+
+### Windows (amd64)
+
+- **Toolchain:** MinGW-w64 (WinLibs) on `PATH`; `CGO_ENABLED=1`, `GOOS=windows`, `GOARCH=amd64`.
+  The Windows Taskfile sets the WinLibs path and `LIBRARY_PATH`/`C_INCLUDE_PATH` automatically.
+- **Build:** `task windows:build` (or `wails3 build`).
+- **Package:** `task windows:package` builds an NSIS installer. The 5 MinGW DLLs in
+  `build/windows/runtime/` are installed next to the exe and included in the installer by
+  `project.nsi`.
+- **Runtime:** ship `vectile-windows-amd64.exe` + the 5 MinGW DLLs + the `.gguf` model (the user
+  places the model in `<UserConfigDir>/vectile/models/`). Missing `libdl.dll` causes a silent
+  `0xC0000135` exit at launch.
+
+### Linux (amd64)
+
+- **Toolchain:** `gcc`/`g++`, `pkg-config`, `libgtk-4-dev`, `libwebkitgtk-6.0-dev`,
+  `libayatana-appindicator3-dev`; `CGO_ENABLED=1`, `GOOS=linux`, `GOARCH=amd64`.
+- **Build:** `task linux:build` (uses `third_party/llama-go/linux/amd64`).
+- **Package:** `task linux:package` produces an AppImage, `.deb`, `.rpm` and an AUR package:
+  - `.deb` (`build/linux/nfpm/nfpm.yaml`) declares `Depends: libgtk-4-1, libwebkitgtk-6.0-4,
+    libgomp1` and installs the binary to `/usr/local/bin/vectile`.
+  - AppImage (`build/linux/appimage/build.sh`) runs `linuxdeploy` to bundle the app and also copies
+    `libgomp.so.1` into the AppDir so it runs on systems without gcc.
+- **Runtime:** the binary only depends on `libgomp.so.1` + `libstdc++` (no llama/ggml shared libs).
+  The `.deb` pulls `libgomp1`; the AppImage bundles it. The model still goes in
+  `<UserConfigDir>/vectile/models/`.
+
+### macOS (universal arm64 + amd64)
+
+- **Toolchain:** Xcode Command Line Tools (`clang`/`clang++`); `CGO_ENABLED=1`, `GOOS=darwin`,
+  `-mmacosx-version-min=12.0`. `task darwin:build` builds a single arch; `task darwin:build:universal`
+  builds both and `lipo`s them together. The goal is a universal `.app`.
+- **Package:** `task darwin:package` (or `package:universal`) assembles the `.app` bundle;
+  `package:dmg` wraps it in a DMG. `Info.plist` is at `build/darwin/Info.plist` (bundle id
+  `com.d3ucey.vectile`, icon file `iconfile.icns`).
+- **Runtime:** nothing external to ship (Metal/Accelerate/BLAS are OS-provided). Distribute the
+  `.app`/`.dmg`; the user places the model in `~/Library/Application Support/vectile/models/`.
+- **Signing:** local builds use ad-hoc `codesign`; releases are unsigned (right-click -> Open on
+  first launch). Notarization is out of scope.
+
+## The release workflow (GitHub Actions)
+
+A stable `vX.Y.Z` tag triggers `.github/workflows/release.yml`, which builds and publishes all three
+platforms:
+
+1. **`validate-tag`** requires `^v\d+\.\d+\.\d+$` (no prereleases).
+2. **`build-windows-amd64`** (windows-latest): MinGW + CGO, injects the version, builds the exe,
+   copies the 5 DLLs, runs `makensis`, uploads the installer + portable exe. **Notable:** the choco
+   `mingw` 16.1.0 package is pinned and `CC`/`CXX` are set so the ABI matches the committed archives;
+   the `.rsrc merge failure: multiple non-default manifests` linker warning is a known, non-fatal
+   `wails3 generate syso` quirk (blank file-version metadata only).
+3. **`build-linux-amd64`** (ubuntu-24.04): apt GTK/WebKit/appindicator deps, CGO build, `.deb` via
+   `wails3 tool package -format deb`, AppImage via `wails3 generate appimage`
+   (`APPIMAGE_EXTRACT_AND_RUN=1` avoids FUSE issues on CI).
+4. **`build-macos`** (macos-latest): builds arm64 + amd64 binaries with the per-arch archives,
+   `lipo`s them into a universal binary, assembles the `.app`, then produces a `.dmg` and a `.zip`.
+5. **`release`** (ubuntu): gathers all artifacts, writes `SHA256SUMS.txt`, and publishes the GitHub
+   Release with a download table + first-run notes. `cleanup-tag-on-failure` deletes the tag if any
+   job failed.
+
+The version injected into `main.Version`, the Windows metadata, the nfpm version and the Info.plist
+all come from the git tag (minus the leading `v`).
+
+## Troubleshooting
+
+- **`go build` can't find `-lggml` / link fails on an OS** - the archives for that OS/arch aren't in
+  `third_party/llama-go/<os>/<arch>/`. Run `scripts/build-llamago-archives.sh` first (or commit the
+  produced archives).
+- **`LLAMA_GO_REF` mismatch** - the script aborts because the fetched `wrapper.h` differs from the
+  vendored one. Find the llama-go ref that matches (usually the release the vendored copy came from).
+- **Windows exe exits `0xC0000135`** - a MinGW DLL is missing next to the exe (usually `libdl.dll`).
+- **Linux binary fails to start in a container** - `libgomp.so.1` is not installed. Install
+  `libgomp1` (or remove it from a rebuilt AppImage's need).
+- **AppImage build fails on CI with a FUSE error** - set `APPIMAGE_EXTRACT_AND_RUN=1` so linuxdeploy
+  doesn't need FUSE.

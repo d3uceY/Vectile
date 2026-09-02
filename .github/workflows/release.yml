@@ -144,7 +144,7 @@ jobs:
           CGO_ENABLED: "1"
           GOOS: windows
           GOARCH: amd64
-          LIBRARY_PATH: ${{ github.workspace }}/third_party/llama-go
+          LIBRARY_PATH: ${{ github.workspace }}/third_party/llama-go/windows/amd64
           C_INCLUDE_PATH: ${{ github.workspace }}/third_party/llama-go
         shell: bash
         run: |
@@ -183,11 +183,189 @@ jobs:
           name: binaries-windows-amd64
           path: dist/*
 
+  build-linux-amd64:
+    runs-on: ubuntu-24.04
+    needs: validate-tag
+    if: needs.validate-tag.outputs.is_stable == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install system deps (GTK/WebKit + CGO toolchain)
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libayatana-appindicator3-dev
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+
+      - name: go mod tidy
+        run: go mod tidy
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: Generate bindings
+        run: wails3 generate bindings -f '-tags production' -clean=true -ts
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Inject version into nfpm config
+        run: |
+          VERSION="${{ needs.validate-tag.outputs.version }}"
+          sed -i "s/^version: .*/version: \"${VERSION}\"/" build/linux/nfpm/nfpm.yaml
+
+      - name: Generate .desktop file
+        run: wails3 generate .desktop -name "vectile" -exec "vectile" -icon "vectile" -outputfile "${{ github.workspace }}/build/linux/vectile.desktop" -categories "Development;"
+
+      - name: Build Linux binary
+        env:
+          CGO_ENABLED: "1"
+          GOOS: linux
+          GOARCH: amd64
+          LIBRARY_PATH: ${{ github.workspace }}/third_party/llama-go/linux/amd64
+          C_INCLUDE_PATH: ${{ github.workspace }}/third_party/llama-go
+        run: |
+          mkdir -p bin
+          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X main.Version=${{ needs.validate-tag.outputs.version }}" -o bin/vectile
+
+      - name: Build .deb package
+        env:
+          GOARCH: amd64
+        run: wails3 tool package -name "vectile" -format deb -config ./build/linux/nfpm/nfpm.yaml -out bin
+
+      - name: Build AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          cp bin/vectile build/linux/appimage/vectile
+          cp build/appicon.png build/linux/appimage/vectile.png
+          wails3 generate appimage -binary ./build/linux/appimage/vectile -icon ./build/linux/appimage/vectile.png -desktopfile ./build/linux/vectile.desktop -outputdir bin -builddir build/linux/appimage/build
+
+      - name: Collect Linux artifacts
+        run: |
+          mkdir -p dist
+          cp bin/vectile dist/vectile-linux-amd64
+          cp bin/vectile.AppImage dist/vectile-linux-amd64.AppImage
+          cp bin/*.deb dist/vectile-linux-amd64.deb
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-linux-amd64
+          path: dist/*
+
+  build-macos:
+    runs-on: macos-latest
+    needs: validate-tag
+    if: needs.validate-tag.outputs.is_stable == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+
+      - name: go mod tidy
+        run: go mod tidy
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: frontend
+
+      - name: Generate bindings
+        run: wails3 generate bindings -f '-tags production' -clean=true -ts
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Inject version into Info.plist
+        run: |
+          VERSION="${{ needs.validate-tag.outputs.version }}"
+          sed -i '' -e "s|<string>0.1.0</string>|<string>${VERSION}</string>|g" build/darwin/Info.plist
+
+      - name: Build macOS ARM64 binary
+        env:
+          CGO_ENABLED: "1"
+          GOOS: darwin
+          GOARCH: arm64
+          CGO_CFLAGS: "-mmacosx-version-min=12.0"
+          CGO_LDFLAGS: "-mmacosx-version-min=12.0"
+          MACOSX_DEPLOYMENT_TARGET: "12.0"
+          LIBRARY_PATH: ${{ github.workspace }}/third_party/llama-go/darwin/arm64
+          C_INCLUDE_PATH: ${{ github.workspace }}/third_party/llama-go
+        run: |
+          mkdir -p build/bin
+          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X main.Version=${{ needs.validate-tag.outputs.version }}" -o build/bin/vectile-arm64
+
+      - name: Build macOS AMD64 binary
+        env:
+          CGO_ENABLED: "1"
+          GOOS: darwin
+          GOARCH: amd64
+          CGO_CFLAGS: "-mmacosx-version-min=12.0"
+          CGO_LDFLAGS: "-mmacosx-version-min=12.0"
+          MACOSX_DEPLOYMENT_TARGET: "12.0"
+          LIBRARY_PATH: ${{ github.workspace }}/third_party/llama-go/darwin/amd64
+          C_INCLUDE_PATH: ${{ github.workspace }}/third_party/llama-go
+        run: |
+          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X main.Version=${{ needs.validate-tag.outputs.version }}" -o build/bin/vectile-amd64
+
+      - name: Create universal binary
+        run: |
+          lipo -create -output build/bin/vectile build/bin/vectile-arm64 build/bin/vectile-amd64
+
+      - name: Assemble .app bundle
+        run: |
+          APP=build/bin/vectile.app/Contents
+          mkdir -p "$APP/MacOS" "$APP/Resources"
+          cp build/darwin/icons.icns "$APP/Resources/iconfile.icns"
+          cp build/bin/vectile       "$APP/MacOS/vectile"
+          cp build/darwin/Info.plist "$APP/Info.plist"
+
+      - name: Create .app zip
+        run: |
+          mkdir -p dist
+          (cd build/bin && zip -9 -r ../../dist/vectile-macos-universal.zip vectile.app)
+
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "vectile" -srcfolder build/bin/vectile.app -ov -format UDZO dist/vectile-macos-universal.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-macos
+          path: dist/*
+
   cleanup-tag-on-failure:
     runs-on: ubuntu-latest
     needs:
       - build-windows-amd64
-    if: always() && needs.build-windows-amd64.result == 'failure'
+      - build-linux-amd64
+      - build-macos
+    if: |
+      always() && (
+        needs.build-windows-amd64.result == 'failure' ||
+        needs.build-linux-amd64.result == 'failure' ||
+        needs.build-macos.result == 'failure'
+      )
     permissions:
       contents: write
     steps:
@@ -201,6 +379,8 @@ jobs:
     needs:
       - validate-tag
       - build-windows-amd64
+      - build-linux-amd64
+      - build-macos
     if: needs.validate-tag.outputs.is_stable == 'true'
     permissions:
       contents: write
@@ -225,6 +405,10 @@ jobs:
             echo '|---|---|---|'
             echo "| Windows (installer) | [vectile-windows-amd64-installer.exe](https://github.com/${{ github.repository }}/releases/download/${CURR_TAG}/vectile-windows-amd64-installer.exe) | ⚠️ SmartScreen will block it - see First-Run Notes below |"
             echo "| Windows (portable)  | [vectile-windows-amd64.exe](https://github.com/${{ github.repository }}/releases/download/${CURR_TAG}/vectile-windows-amd64.exe) | |"
+            echo "| Linux (AppImage)    | [vectile-linux-amd64.AppImage](https://github.com/${{ github.repository }}/releases/download/${CURR_TAG}/vectile-linux-amd64.AppImage) | chmod +x, then run |"
+            echo "| Linux (.deb)        | [vectile-linux-amd64.deb](https://github.com/${{ github.repository }}/releases/download/${CURR_TAG}/vectile-linux-amd64.deb) | sudo apt install ./vectile-linux-amd64.deb |"
+            echo "| macOS (universal)   | [vectile-macos-universal.dmg](https://github.com/${{ github.repository }}/releases/download/${CURR_TAG}/vectile-macos-universal.dmg) | |"
+            echo "| macOS (universal)   | [vectile-macos-universal.zip](https://github.com/${{ github.repository }}/releases/download/${CURR_TAG}/vectile-macos-universal.zip) | |"
             echo ''
             echo 'SHA-256 checksums are in \`SHA256SUMS.txt\` attached below.'
             echo ''
@@ -233,6 +417,8 @@ jobs:
             echo 'vectile is unsigned, so first launch may warn you - it'"'"'s safe and open source.'
             echo ''
             echo '- **Windows:** SmartScreen -> **More info** -> **Run anyway** (or unblock the `.exe` in Properties).'
+            echo '- **macOS:** right-click the app -> **Open** (or `xattr -d com.apple.quarantine` on the `.app`).'
+            echo '- **Linux:** the AppImage needs `chmod +x`; the `.deb` pulls GTK4/WebKitGTK 6.0 + `libgomp1` automatically.'
             echo ''
           } > commit_log.md
 
@@ -294,11 +480,15 @@ jobs:
         run: |
           test -f artifacts/vectile-windows-amd64-installer.exe
           test -f artifacts/vectile-windows-amd64.exe
+          test -f artifacts/vectile-linux-amd64.AppImage
+          test -f artifacts/vectile-linux-amd64.deb
+          test -f artifacts/vectile-macos-universal.dmg
+          test -f artifacts/vectile-macos-universal.zip
 
       - name: Generate checksums
         run: |
           cd artifacts
-          sha256sum vectile-windows-* > SHA256SUMS.txt
+          sha256sum vectile-* > SHA256SUMS.txt
 
       - uses: softprops/action-gh-release@v2
         with:

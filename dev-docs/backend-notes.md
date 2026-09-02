@@ -30,7 +30,7 @@ backend/search              hybrid search: vector + FTS + RRF
 backend/indexer             obsidian, project, git, calibre indexers; prune
 backend/services            Wails services the UI calls
 backend/startup             launch-at-login per OS
-third_party/llama-go        vendored llama.cpp bindings, prebuilt for Windows
+third_party/llama-go        vendored llama.cpp bindings, per-OS/per-arch static archives
 frontend/src/lib/api.ts     the only place the UI touches the bindings
 ```
 
@@ -80,7 +80,7 @@ Open in the OS. AppService exposes `OpenFile` and `RevealInFolder`; the per-OS c
 
 9. vec_quantize_binary works on modernc. I Ire not sure sqlite-vec's binary quantization would work under the pure-Go driver. The db test queries `vec_documents_bin` with `embedding MATCH vec_quantize_binary(?)` and it returns rows. FTS5 also works. If it had not, the plan was to drop the binary mirror and use float-only KNN.
 
-10. The language server flags darwin. The Problems panel shows "undefined: llama.Model" and tree-sitter import errors tagged `[darwin]`. These are not real. The vendored llama-go static libraries are Windows/MinGW builds, so the analyzer, which picks a darwin target here, cannot resolve them. The actual Windows build, vet, and tests all pass.
+10. The language server flags darwin (and sometimes linux). The Problems panel shows "undefined: llama.Model" and tree-sitter import errors tagged `[darwin]`/`[linux]`. These are usually not real: gopls cross-checks other GOOS targets, but it can't resolve the llama-go archives unless those OS archives exist in `third_party/llama-go/<os>/<arch>/`. Once you add the per-OS archives (see `scripts/build-llamago-archives.sh`), the matching OS targets resolve; the host build, vet and tests still pass regardless.
 
 11. Tailwind class suggestions. The linter suggested `text-ink/10` over `text-ink/[0.10]` and `max-w-245` over `max-w-[61.25rem]`. I applied the one I introduced and left the pre-existing ones alone.
 
@@ -88,13 +88,22 @@ Open in the OS. AppService exposes `OpenFile` and `RevealInFolder`; the per-OS c
 
 ## Building and running
 
-The llama-go build needs the cgo environment:
+The llama-go build needs the cgo environment. Archives are committed per-OS/per-arch in
+`third_party/llama-go/{windows,linux,darwin}/<arch>/`; the cgo `LDFLAGS` select the right one via
+`linkage_<os>_<arch>.go` (`-L./<os>/<arch>`). See `docs/BUILD-AND-PACKAGING.md` for the full matrix.
 
-- MinGW-w64 `bin` on `PATH` (WinLibs)
-- `LIBRARY_PATH` and `C_INCLUDE_PATH` pointing at `third_party/llama-go`
+- **Windows:** MinGW-w64 `bin` on `PATH` (WinLibs); `LIBRARY_PATH` → `third_party/llama-go/windows/amd64`,
+  `C_INCLUDE_PATH` → `third_party/llama-go`. The Windows build task sets these. For `wails3 dev`, set
+  them in the shell first, because dev mode builds directly. The built exe needs five MinGW runtime
+  DLLs beside it: libgcc_s_seh-1.dll, libgomp-1.dll, libstdc++-6.dll, libwinpthread-1.dll, libdl.dll.
+  Missing libdl.dll causes a silent 0xC0000135 exit at launch.
+- **Linux (amd64):** `gcc`/`g++` + `pkg-config` + GTK4/WebKitGTK 6.0/appindicator dev packages;
+  `LIBRARY_PATH` → `third_party/llama-go/linux/amd64`, `C_INCLUDE_PATH` → `third_party/llama-go`.
+  The binary depends on `libgomp.so.1` at runtime (`libgomp1` deb dep, bundled in the AppImage).
+- **macOS (universal):** Xcode CLT (`clang`/`clang++`); `LIBRARY_PATH` →
+  `third_party/llama-go/darwin/<arch>`. Metal/Accelerate frameworks are OS-provided.
 
-The Windows build task in `build/windows/Taskfile.yml` sets these. For `wails3 dev`, set them in the shell first, because dev mode builds directly.
-
-The built exe needs five MinGW runtime DLLs beside it: libgcc_s_seh-1.dll, libgomp-1.dll, libstdc++-6.dll, libwinpthread-1.dll, libdl.dll. Missing libdl.dll causes a silent `0xC0000135` exit at launch.
+Rebuilding the archives for a new OS/arch: `LLAMA_GO_REF=<ref> ./scripts/build-llamago-archives.sh`
+(clones the matching llama.go source, builds llama.cpp, installs the `.a` files, then commit them).
 
 Tests: `go test ./backend/...`. The model-dependent tests skip when the model is not in `models/`.

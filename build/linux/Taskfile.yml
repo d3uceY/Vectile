@@ -66,6 +66,11 @@ tasks:
       GOOS: linux
       CGO_ENABLED: 1
       GOARCH: '{{.ARCH | default ARCH}}'
+      # llama.go links the per-OS/per-arch static archives. The cgo LDFLAGS use
+      # -L./linux/amd64 (relative to the package dir); LIBRARY_PATH mirrors it
+      # for the linker, and C_INCLUDE_PATH points at the llama-go root (headers).
+      LIBRARY_PATH: '{{.ROOT_DIR}}/third_party/llama-go/linux/{{.ARCH | default "amd64"}}'
+      C_INCLUDE_PATH: '{{.ROOT_DIR}}/third_party/llama-go'
 
   build:docker:
     summary: Builds for Linux using Docker (for non-Linux hosts or when no C compiler available)

@@ -4,19 +4,19 @@
         <key>CFBundlePackageType</key>
             <string>APPL</string>
         <key>CFBundleName</key>
-            <string>My Product</string>
+            <string>vectile</string>
         <key>CFBundleExecutable</key>
-            <string>vectile.exe</string>
+            <string>vectile</string>
         <key>CFBundleIdentifier</key>
-            <string>com.example.vectile</string>
+            <string>com.d3ucey.vectile</string>
         <key>CFBundleVersion</key>
             <string>0.1.0</string>
         <key>CFBundleGetInfoString</key>
-            <string>This is a comment</string>
+            <string>Built using Wails (https://wails.io)</string>
         <key>CFBundleShortVersionString</key>
             <string>0.1.0</string>
         <key>CFBundleIconFile</key>
-            <string>icons</string>
+            <string>iconfile</string>
         <key>CFBundleIconName</key>
             <string>appicon</string>
         <key>LSMinimumSystemVersion</key>
@@ -24,6 +24,6 @@
         <key>NSHighResolutionCapable</key>
             <string>true</string>
         <key>NSHumanReadableCopyright</key>
-            <string>© 2026, My Company</string>
+            <string>© 2026 d3uceY</string>
     </dict>
 </plist>

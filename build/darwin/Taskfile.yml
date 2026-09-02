@@ -53,6 +53,12 @@ tasks:
       CGO_CFLAGS: "-mmacosx-version-min=12.0"
       CGO_LDFLAGS: "-mmacosx-version-min=12.0"
       MACOSX_DEPLOYMENT_TARGET: "12.0"
+      # llama.go links the per-OS/per-arch static archives (arm64 or amd64). The
+      # cgo LDFLAGS use -L./darwin/<arch> (relative to the package dir);
+      # LIBRARY_PATH mirrors it for the linker, and C_INCLUDE_PATH points at the
+      # llama-go root (headers).
+      LIBRARY_PATH: '{{.ROOT_DIR}}/third_party/llama-go/darwin/{{.ARCH | default "arm64"}}'
+      C_INCLUDE_PATH: '{{.ROOT_DIR}}/third_party/llama-go'
 
   build:docker:
     summary: Cross-compiles for macOS using Docker (for Linux/Windows hosts)
@@ -160,7 +166,8 @@ tasks:
     cmds:
       - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS"
       - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
-      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
+      # CFBundleIconFile in Info.plist is "iconfile" -> Resources/iconfile.icns
+      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources/iconfile.icns"
       - |
         if [ -f build/darwin/Assets.car ]; then
           cp build/darwin/Assets.car "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
@@ -185,7 +192,7 @@ tasks:
     cmds:
       - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS"
       - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
-      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
+      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources/iconfile.icns"
       - |
         if [ -f build/darwin/Assets.car ]; then
           cp build/darwin/Assets.car "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"

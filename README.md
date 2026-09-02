@@ -16,13 +16,16 @@ Inspired by Sebastian Hutter’s local-rag. No Ollama, no API keys, no model dow
 **Click your platform to download the latest version:**
 
 [![Windows](https://img.shields.io/github/v/release/d3uceY/vectile?style=for-the-badge&logo=windows&label=Windows&color=0078D4&logoColor=white)](https://github.com/d3uceY/vectile/releases/latest/download/vectile-windows-amd64-installer.exe) - ⚠️ SmartScreen will block it · [how to fix](#first-run-notes)<br>
-[![Windows portable](https://img.shields.io/badge/Windows%20portable-download-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/d3uceY/vectile/releases/latest/download/vectile-windows-amd64.exe)
+[![Windows portable](https://img.shields.io/badge/Windows%20portable-download-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/d3uceY/vectile/releases/latest/download/vectile-windows-amd64.exe)<br>
+[![Linux AppImage](https://img.shields.io/badge/Linux%20AppImage-download-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/d3uceY/vectile/releases/latest/download/vectile-linux-amd64.AppImage)<br>
+[![Linux deb](https://img.shields.io/badge/Linux%20deb-download-D14A3?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/d3uceY/vectile/releases/latest/download/vectile-linux-amd64.deb)<br>
+[![macOS universal](https://img.shields.io/badge/macOS%20universal-download-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/d3uceY/vectile/releases/latest/download/vectile-macos-universal.dmg)
 
-> Windows 10/11 · macOS and Linux builds are coming soon · **app is not code-signed, [see first-run notes below](#first-run-notes)**
+> Windows 10/11 · Linux (AppImage + deb) · macOS (universal arm64 + amd64) · **app is not code-signed, [see first-run notes below](#first-run-notes)**
 
 ### First-Run Notes
 
-vectile is not code-signed, so Windows may warn you on first launch. The app is safe and fully open source — you can read every line of code here.
+vectile is not code-signed, so your OS may warn you on first launch. The app is safe and fully open source — you can read every line of code here.
 
 **Windows - SmartScreen**
 
@@ -30,6 +33,14 @@ vectile is not code-signed, so Windows may warn you on first launch. The app is 
 2. Click **Run anyway**
 
 Or right-click the `.exe` -> **Properties** -> check **Unblock** -> **Apply**.
+
+**macOS - Gatekeeper**
+
+Right-click the app -> **Open** (once), or run `xattr -d com.apple.quarantine /path/to/vectile.app`.
+
+**Linux**
+
+The `.deb` pulls GTK4/WebKitGTK 6.0 + `libgomp1` automatically; the AppImage needs `chmod +x` before running.
 
 ## Screenshots
 
@@ -181,7 +192,22 @@ task package    # package an installer for the current OS
 
 Tests: `go test ./backend/...`. Model-dependent tests skip when the model is not in `models/`.
 
-On Windows the built exe needs five MinGW runtime DLLs beside it (libgcc_s_seh-1.dll, libgomp-1.dll, libstdc++-6.dll, libwinpthread-1.dll, libdl.dll). Missing libdl.dll causes a silent 0xC0000135 exit at launch.
+vectile links llama.cpp in-process through the vendored `third_party/llama-go`, whose static archives
+are committed per-OS/per-arch under `third_party/llama-go/{windows,linux,darwin}/<arch>`. A build only
+needs a C/C++ compiler on `PATH`; see [`docs/BUILD-AND-PACKAGING.md`](docs/BUILD-AND-PACKAGING.md) for
+the full cross-platform build, packaging and release notes.
+
+- **Windows (amd64):** needs MinGW-w64 on `PATH`, with `LIBRARY_PATH`/`C_INCLUDE_PATH` pointing at
+  `third_party/llama-go` (the Windows build task sets these). The built exe needs five MinGW runtime
+  DLLs beside it (`libgcc_s_seh-1.dll`, `libgomp-1.dll`, `libstdc++-6.dll`, `libwinpthread-1.dll`,
+  `libdl.dll`). Missing `libdl.dll` causes a silent `0xC0000135` exit at launch.
+- **Linux (amd64):** needs `gcc`/`g++`, `pkg-config`, `libgtk-4-dev`, `libwebkitgtk-6.0-dev` and
+  `libayatana-appindicator3-dev`. The binary depends on `libgomp.so.1` at runtime (bundled in the
+  AppImage, `Depends: libgomp1` in the `.deb`). `task linux:package` yields AppImage + `.deb`
+  (+ `.rpm`/AUR).
+- **macOS (universal):** needs Xcode Command Line Tools. `task darwin:build:universal` builds
+  arm64 + amd64 and `lipo`s them together; `task darwin:package:dmg` wraps the `.app` in a DMG. The
+  Metal/Accelerate frameworks are OS-provided, so nothing extra ships.
 
 ## Architecture
 
