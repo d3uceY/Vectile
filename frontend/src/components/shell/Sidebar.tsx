@@ -8,7 +8,7 @@ import {
   SearchIcon,
   SettingsIcon,
 } from "../ui/icons";
-import { Mascot } from "./Mascot";
+import { Mascot } from "./mascot";
 
 /* ------------------------------------------------------------------
    Sidebar: the notebook's index tabs. The active view is a filing-
@@ -31,18 +31,20 @@ const modelCopy: Record<ModelState, { label: string; dot: string; text: string }
   failed: { label: "failed", dot: "bg-danger", text: "text-danger" },
 };
 
-/** The engine's colophon: a one-line chip in the sidebar footer. The full
-    cardstock plate was shrunk to a single line so the mascot owns the space. */
+/** The engine's colophon: one quiet line in the sidebar footer, left-aligned
+    to match the nav. A colored dot + state word, the model id in mono, and a
+    muted "local" tag. Long model names truncate instead of blowing out. */
 function ModelPlate(props: { state: ModelState; name?: string }) {
   const m = () => modelCopy[props.state];
   const tip = () => (props.name ? `${m().label} · ${props.name}` : m().label);
   return (
-    <span class="inline-flex items-center gap-2" title={tip()}>
+    <span class="flex min-w-0 items-center gap-2" title={tip()}>
       <span class="relative flex h-2 w-2 shrink-0">
         <span class={`h-2 w-2 rounded-full ${m().dot} ${props.state === "loaded" ? "pulse-dot" : ""}`} />
       </span>
-      <span class={`data transition-colors ${m().text}`}>{m().label}</span>
-      <span class="data truncate text-faint">{props.name ?? "…"} · local</span>
+      <span class={`data shrink-0 transition-colors ${m().text}`}>{m().label}</span>
+      <span class="data min-w-0 truncate text-faint">{props.name ?? "…"}</span>
+      <span class="data shrink-0 text-faint">local</span>
     </span>
   );
 }
@@ -52,7 +54,7 @@ export function Sidebar() {
   return (
     /* Full sidebar with labels at md+; collapses to an icon rail below so a
        narrow window still leaves room for the content column. */
-    <aside class="flex w-16 shrink-0 flex-col border-r border-line bg-paper/80 md:w-56">
+    <aside class="flex w-16 shrink-0 flex-col border-r  border-line bg-white md:w-56">
       {/* Title plate */}
       <div class="flex flex-col items-center gap-2.5 pb-4 pt-6 md:block md:px-5">
         <div class="flex items-center justify-center gap-3 md:justify-start">
@@ -99,11 +101,13 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Engine colophon + mascot stage */}
-      <footer class="shrink-0 border-t border-line px-4 pb-5 pt-4 md:px-5">
-        {/* Mascot stage: hidden unless an interaction is running. Only shown at
-            md+ (the icon rail is too narrow for the dino). */}
-        <div class="hidden md:block">
+      {/* Engine colophon */}
+      <footer class="relative shrink-0 border-t border-line px-4 pb-4 pt-3 md:px-5">
+        {/* Mascot: rises from the footer's top edge into the idle nav space, only
+            while an interaction runs. Absolute + pointer-events-none so it never
+            reserves space and never nudges the colophon below. Hidden on the
+            icon rail (too narrow for the dino). */}
+        <div class="pointer-events-none absolute inset-x-0 bottom-full hidden justify-center md:flex">
           <Mascot />
         </div>
         {/* Icon rail (< md): just the state dot, no room for text */}
@@ -116,7 +120,7 @@ export function Sidebar() {
             />
           </span>
         </div>
-        <div class="mt-1.5 hidden justify-center md:flex">
+        <div class="hidden md:block">
           <ModelPlate state={store.modelState()} name={store.modelName()} />
         </div>
       </footer>
