@@ -70,7 +70,12 @@ const config = {
   git_history_in_months: 6,
   git_commit_subject_blacklist: ["^Merge ", "^fixup! ", "^WIP "],
   search_defaults: { top_k: 12, rrf_k: 60, vector_weight: 1.0, fts_weight: 1.0 },
-  gui: { auto_reindex: false, auto_reindex_interval_minutes: 60, start_on_login: false },
+  gui: {
+    auto_reindex: false,
+    auto_reindex_interval_minutes: 60,
+    start_on_login: false,
+    mascot: { show_searching: true, show_indexing: true, show_nothing: true },
+  },
   mcp: { enabled: true, port: 31123 },
 };
 

@@ -47,6 +47,10 @@ Screenshots show sample data.
   </tr>
 </table>
 
+<p align="center">
+  <img src="docs/screenshots/settings-mascot.png" alt="Settings → Vexter: show the sidebar mascot while searching, indexing, or on no results" width="100%">
+</p>
+
 ## Supported sources
 
 | Source | Collection Type | What Gets Indexed |
@@ -94,12 +98,14 @@ On a fresh install, a short tour walks you through it: add a folder, index it, t
 Five views, keyboard-first:
 
 - **Search** (home): a large search bar, a filter row, and results as cards with title, snippet, rank, collection, and source path. Expand a card to read the whole passage, open the file, or reveal it in the file manager. A small toggle switches each result between its rank (#1) and the blended score (%). Jump in from anywhere with ⌘K / Ctrl K.
-- **Library**: every collection with its file and chunk counts and the last time it was indexed; expand one to list its files.
-- **Browse**: a file tree of collections, files, and chunks, with a preview pane.
+- **Library**: every collection with its file and chunk counts and the last time it was indexed; expand one to list its files, and remove a source or its documents in place.
+- **Browse**: a file tree of collections, files, and chunks, with a preview pane. Select chunks to delete them, or remove a whole library.
 - **Index**: run "Index new" (only changed files) or "Re-index all" (re-embed everything) per collection, or index all collections at once, with live progress.
-- **Settings**: sources, model, chunking, search defaults, auto-reindex, start-on-login, and a Connect section that runs a local MCP server for AI assistants.
+- **Settings**: sources, model, chunking, search defaults, auto-reindex, start-on-login, Vexter (the sidebar mascot), and a Connect section that runs a local MCP server for AI assistants.
 
 The sidebar shows the model state: idle, loaded, or failed. If the model file is missing or corrupt, vector search falls back to full-text search, so exact-word matches still work.
+
+A little pixel dinosaur called **Vexter** lives in the sidebar and pokes up while your library works — while a query runs, while it indexes, and when a search comes up empty. It's purely decorative, and Settings → Vexter lets you turn each of those moments on or off independently.
 
 Files you delete get pruned automatically, so results don't go stale. Auto-reindex, if enabled, re-indexes everything on a timer. Start-on-login launches the app with your session. The status strip shows when the library was last indexed; when auto-reindex is off and that date is more than a day old, Search quietly suggests a re-index.
 
@@ -147,6 +153,9 @@ Config file: `<os.UserConfigDir()>/vectile/config.json`
 | gui.auto_reindex | false | Enable periodic re-indexing |
 | gui.auto_reindex_interval_minutes | 60 | Minutes between auto-reindex runs |
 | gui.start_on_login | false | Launch at login |
+| gui.mascot.show_searching | true | Show Vexter in the sidebar while a query runs |
+| gui.mascot.show_indexing | true | Show Vexter while a library rebuilds |
+| gui.mascot.show_nothing | true | Show Vexter when a search comes up empty |
 | mcp.enabled | false | Serve read-only MCP search tools to local AI assistants on launch |
 | mcp.port | 31123 | Port the MCP server listens on (127.0.0.1 only) |
 
