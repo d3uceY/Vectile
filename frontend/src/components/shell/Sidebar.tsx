@@ -8,6 +8,7 @@ import {
   SearchIcon,
   SettingsIcon,
 } from "../ui/icons";
+import { Mascot } from "./Mascot";
 
 /* ------------------------------------------------------------------
    Sidebar: the notebook's index tabs. The active view is a filing-
@@ -30,32 +31,19 @@ const modelCopy: Record<ModelState, { label: string; dot: string; text: string }
   failed: { label: "failed", dot: "bg-danger", text: "text-danger" },
 };
 
-/** The engine's colophon: a cardstock plate in the sidebar footer. */
-function ModelPlate(props: { state: ModelState; name?: string; compact?: boolean }) {
+/** The engine's colophon: a one-line chip in the sidebar footer. The full
+    cardstock plate was shrunk to a single line so the mascot owns the space. */
+function ModelPlate(props: { state: ModelState; name?: string }) {
   const m = () => modelCopy[props.state];
   const tip = () => (props.name ? `${m().label} · ${props.name}` : m().label);
-  const dot = (
-    <span class="relative flex h-2 w-2 shrink-0">
-      <span class={`h-2 w-2 rounded-full ${m().dot} ${props.state === "loaded" ? "pulse-dot" : ""}`} />
-    </span>
-  );
-  if (props.compact) {
-    return (
-      <span class="inline-flex" title={tip()}>
-        {dot}
-      </span>
-    );
-  }
   return (
-    <div class="rounded-[9px] border border-line bg-paper-warm px-3.5 py-3" title={tip()}>
-      <div class="flex items-center gap-2">
-        {dot}
-        <span class={`text-[12px] font-semibold leading-none ${m().text}`}>{m().label}</span>
-      </div>
-      <p class="data mt-2 truncate text-faint">{props.name ?? "…"} · local</p>
-      <div class="mt-2.5 border-t border-line" aria-hidden="true" />
-      <p class="note mt-2 text-[11.5px] leading-4 text-muted">nothing leaves this machine</p>
-    </div>
+    <span class="inline-flex items-center gap-2" title={tip()}>
+      <span class="relative flex h-2 w-2 shrink-0">
+        <span class={`h-2 w-2 rounded-full ${m().dot} ${props.state === "loaded" ? "pulse-dot" : ""}`} />
+      </span>
+      <span class={`data transition-colors ${m().text}`}>{m().label}</span>
+      <span class="data truncate text-faint">{props.name ?? "…"} · local</span>
+    </span>
   );
 }
 
@@ -111,14 +99,26 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Engine colophon */}
+      {/* Engine colophon + mascot stage */}
       <footer class="shrink-0 border-t border-line px-4 pb-5 pt-4 md:px-5">
-        <span class="flex justify-center md:hidden">
-          <ModelPlate compact state={store.modelState()} name={store.modelName()} />
-        </span>
-        <span class="hidden md:block">
+        {/* Mascot stage: hidden unless an interaction is running. Only shown at
+            md+ (the icon rail is too narrow for the dino). */}
+        <div class="hidden md:block">
+          <Mascot />
+        </div>
+        {/* Icon rail (< md): just the state dot, no room for text */}
+        <div class="flex justify-center md:hidden">
+          <span class="relative flex h-2 w-2 shrink-0">
+            <span
+              class={`h-2 w-2 rounded-full ${modelCopy[store.modelState()].dot} ${
+                store.modelState() === "loaded" ? "pulse-dot" : ""
+              }`}
+            />
+          </span>
+        </div>
+        <div class="mt-1.5 hidden justify-center md:flex">
           <ModelPlate state={store.modelState()} name={store.modelName()} />
-        </span>
+        </div>
       </footer>
     </aside>
   );

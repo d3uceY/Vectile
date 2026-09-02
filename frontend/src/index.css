@@ -210,6 +210,58 @@
     }
   }
 
+  /* Sidebar mascot: reserves a fixed-height stage in the footer colophon so
+     the model line never jumps when the dinosaur pops in or out. The mascot
+     slides up from below the fold on activation. */
+  .mascot-stage {
+    display: flex;
+    height: 5.5rem;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .mascot {
+    position: relative;
+    height: 5rem;
+    width: auto;
+  }
+  .mascot img {
+    display: block;
+    height: 5rem;
+    width: auto;
+    /* Crisp nearest-neighbour upscale so the pixel grid stays honest */
+    image-rendering: pixelated;
+  }
+  /* Animated webp is the default; the static PNG is hidden and only swapped in
+     under reduced motion, so the dino never loops for motion-sensitive users. */
+  .mascot__static {
+    display: none !important;
+  }
+  .mascot--indexing,
+  .mascot--searching,
+  .mascot--nothing {
+    animation: mascot-pop 260ms var(--ease-snappy);
+  }
+  @keyframes mascot-pop {
+    from {
+      opacity: 0;
+      transform: translateY(112%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mascot__anim {
+      display: none !important;
+    }
+    .mascot__static {
+      display: block !important;
+    }
+  }
+
   /* Soft pulsing dot for the live model indicator */
   .pulse-dot::after {
     content: "";
