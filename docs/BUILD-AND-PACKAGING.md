@@ -2,10 +2,10 @@
 
 vectile runs the bge-m3 embedding model **in-process** through [`llama-go`](https://github.com/tcpipuk/llama-go),
 a CGO binding to llama.cpp. Because that pulls in native C/C++, every platform needs its own set
-of llama.cpp static archives at link time. The archives are **committed per-OS/per-arch** under
-`third_party/llama-go/<os>/<arch>/`, so a normal build only needs a suitable C/C++ compiler on
-`PATH` (plus `LIBRARY_PATH`/`C_INCLUDE_PATH` pointing at the llama-go root) - it never rebuilds
-llama.cpp.
+of llama.cpp static archives at link time. Only the **Windows** archives are **committed** under
+`third_party/llama-go/windows/amd64/`; the Linux and macOS archives are **built on the CI runner**
+before each release (see below). A build only needs a suitable C/C++ compiler on `PATH` (plus
+`LIBRARY_PATH`/`C_INCLUDE_PATH` pointing at the llama-go root) - it never rebuilds llama.cpp.
 
 This document explains the layout, the one-off archive build, the per-platform prerequisites, and
 how each target is built, packaged and shipped.
@@ -61,20 +61,25 @@ files into `third_party/llama-go/<os>/<arch>/`. It is the bash analogue of the
 
 ```
 # Linux amd64
-LLAMA_GO_REF=<commit-or-tag> ./scripts/build-llamago-archives.sh
+./scripts/build-llamago-archives.sh
 
 # macOS arm64 (run on an Apple Silicon Mac)
-LLAMA_GO_REF=<commit-or-tag> ./scripts/build-llamago-archives.sh
+./scripts/build-llamago-archives.sh
 
-# macOS amd64 (run on an Intel Mac, or use a cross toolchain)
+# macOS amd64 (run on an Intel Mac, or cross-build from ARM64 with GOARCH=amd64)
+GOARCH=amd64 ./scripts/build-llamago-archives.sh
+
+# Or pin a specific llama-go ref (auto-detect otherwise)
 LLAMA_GO_REF=<commit-or-tag> ./scripts/build-llamago-archives.sh
 ```
 
-> **`LLAMA_GO_REF` is the one thing you must get exactly right.** It must be the llama-go
-> commit/tag whose `wrapper.h` is vendored in `third_party/llama-go`. The script clones that ref,
-> builds its `llama.cpp` submodule, then verifies the cloned `wrapper.h` matches the vendored one
-> (an ABI guard); it aborts if they differ, so keep trying refs until it passes. Commit the
-> resulting archives (only `bin/` is gitignored, `*.a` is not).
+> **`LLAMA_GO_REF` is optional.** The script must use the llama-go commit/tag whose `wrapper.h` is
+> vendored in `third_party/llama-go` (the Go<->C++ ABI depends on it), but when the variable is
+> unset the script auto-detects it: it clones upstream, tries `HEAD`, then every tag (newest first),
+> and takes the first whose `wrapper.h` matches the vendored copy. When set, it verifies the ref
+> matches (ABI guard) and aborts if not. The produced `.a` files can be committed, or left for the
+> CI runner to build each release (only `bin/` is gitignored, `*.a` is not). `GOARCH` overrides the
+> detected arch so you can cross-build (e.g. an ARM64 runner producing the x86_64 macOS archives).
 
 Requirements: `gcc`/`g++` + `cmake` + `make` (or `ninja`) + `git` + `ar` on Linux; Xcode Command
 Line Tools on macOS. Linux builds configure with `GGML_OPENMP=ON` (that's why `libgomp` is needed
@@ -140,11 +145,15 @@ platforms:
    `mingw` 16.1.0 package is pinned and `CC`/`CXX` are set so the ABI matches the committed archives;
    the `.rsrc merge failure: multiple non-default manifests` linker warning is a known, non-fatal
    `wails3 generate syso` quirk (blank file-version metadata only).
-3. **`build-linux-amd64`** (ubuntu-24.04): apt GTK/WebKit/appindicator deps, CGO build, `.deb` via
-   `wails3 tool package -format deb`, AppImage via `wails3 generate appimage`
+3. **`build-linux-amd64`** (ubuntu-24.04): apt GTK/WebKit/appindicator deps + `cmake`, then
+   `scripts/build-llamago-archives.sh` builds the Linux ELF archives into
+   `third_party/llama-go/linux/amd64/` before the CGO build, then `.deb` via
+   `wails3 tool package -format deb` and AppImage via `wails3 generate appimage`
    (`APPIMAGE_EXTRACT_AND_RUN=1` avoids FUSE issues on CI).
-4. **`build-macos`** (macos-latest): builds arm64 + amd64 binaries with the per-arch archives,
-   `lipo`s them into a universal binary, assembles the `.app`, then produces a `.dmg` and a `.zip`.
+4. **`build-macos`** (macos-latest): `scripts/build-llamago-archives.sh` builds **both** the arm64
+   and amd64 archives (the runner is ARM64, so amd64 is cross-built via `GOARCH=amd64`), then
+   builds arm64 + amd64 binaries, `lipo`s them into a universal binary, assembles the `.app`, then
+   produces a `.dmg` and a `.zip`.
 5. **`release`** (ubuntu): gathers all artifacts, writes `SHA256SUMS.txt`, and publishes the GitHub
    Release with a download table + first-run notes. `cleanup-tag-on-failure` deletes the tag if any
    job failed.
@@ -155,8 +164,9 @@ all come from the git tag (minus the leading `v`).
 ## Troubleshooting
 
 - **`go build` can't find `-lggml` / link fails on an OS** - the archives for that OS/arch aren't in
-  `third_party/llama-go/<os>/<arch>/`. Run `scripts/build-llamago-archives.sh` first (or commit the
-  produced archives).
+  `third_party/llama-go/<os>/<arch>/`. Build them with `scripts/build-llamago-archives.sh` (set
+  `GOARCH` to cross-build), or commit the produced archives. On the release runners the workflow
+  builds them automatically before `go build`.
 - **`LLAMA_GO_REF` mismatch** - the script aborts because the fetched `wrapper.h` differs from the
   vendored one. Find the llama-go ref that matches (usually the release the vendored copy came from).
 - **Windows exe exits `0xC0000135`** - a MinGW DLL is missing next to the exe (usually `libdl.dll`).

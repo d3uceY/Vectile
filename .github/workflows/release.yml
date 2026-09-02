@@ -5,10 +5,12 @@
 # if the build fails.
 #
 # Ported from the wails3-release skill; adapted for vectile:
-#   - Windows only for now (the vendored llama-go only has Windows/MinGW
-#     static archives, so Linux/macOS can't link yet — re-add those jobs once
-#     per-OS archives exist).
-#   - CGO_ENABLED=1 + MinGW (vectile links llama.cpp), not CGO=0.
+#   - Windows uses the committed MinGW archives; choco mingw 16.1.0 is pinned
+#     so the C++ ABI matches them (vectile links llama.cpp).
+#   - Linux/macOS build their per-OS llama.cpp archives on the runner first
+#     (scripts/build-llamago-archives.sh) because only the Windows archives are
+#     checked in; the vendored llama.cpp/ tree is headers-only.
+#   - CGO_ENABLED=1 (vectile links llama.cpp), not CGO=0.
 #   - The 5 MinGW runtime DLLs ship beside the exe and in the installer
 #     (committed under build/windows/runtime).
 #   - The version is injected into main.go's `Version` var (with the `v`).
@@ -201,7 +203,7 @@ jobs:
       - name: Install system deps (GTK/WebKit + CGO toolchain)
         run: |
           sudo apt update
-          sudo apt install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libayatana-appindicator3-dev
+          sudo apt install -y build-essential pkg-config cmake git libgtk-4-dev libwebkitgtk-6.0-dev libayatana-appindicator3-dev
 
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
@@ -227,6 +229,14 @@ jobs:
 
       - name: Generate .desktop file
         run: wails3 generate .desktop -name "vectile" -exec "vectile" -icon "vectile" -outputfile "${{ github.workspace }}/build/linux/vectile.desktop" -categories "Development;"
+
+      # third_party/llama-go/linux/amd64 is NOT committed (only the Windows
+      # archives are). Build the llama.cpp ELF archives here so `go build` can
+      # link; the script auto-detects the llama-go ref matching the vendored
+      # wrapper.h. (libgomp.so.1 for the AppImage is bundled by build.sh.)
+      - name: Build llama-go Linux archives
+        run: |
+          ./scripts/build-llamago-archives.sh
 
       - name: Build Linux binary
         env:
@@ -300,6 +310,13 @@ jobs:
         run: |
           VERSION="${{ needs.validate-tag.outputs.version }}"
           sed -i '' -e "s|<string>0.1.0</string>|<string>${VERSION}</string>|g" build/darwin/Info.plist
+
+      # third_party/llama-go/darwin/{arm64,amd64} is NOT committed. Build both
+      # archive sets here (the runner is ARM64, so amd64 is cross-built).
+      - name: Build llama-go macOS archives
+        run: |
+          GOARCH=arm64 ./scripts/build-llamago-archives.sh
+          GOARCH=amd64 ./scripts/build-llamago-archives.sh
 
       - name: Build macOS ARM64 binary
         env:

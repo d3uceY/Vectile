@@ -14,12 +14,15 @@
 # compiler on PATH - not a llama.cpp rebuild.
 #
 # USAGE (run on the TARGET OS):
-#   LLAMA_GO_REF=<commit-or-tag> ./scripts/build-llamago-archives.sh
+#   ./scripts/build-llamago-archives.sh            # auto-detect the ref
+#   LLAMA_GO_REF=<commit-or-tag> ./scripts/build-llamago-archives.sh   # pin it
 #
-#   LLAMA_GO_REF  (required) - the llama-go commit/tag whose wrapper.h and
-#     cgo_headers are vendored in third_party/llama-go. The script clones that
-#     ref, then verifies its wrapper.h matches ours (ABI guard) before building;
-#     it aborts if they differ so you can find the right ref.
+#   LLAMA_GO_REF  (optional) - the llama-go commit/tag whose wrapper.h and
+#     cgo_headers are vendored in third_party/llama-go. When unset the script
+#     auto-detects the ref by trying HEAD, then every tag (newest-first), and
+#     picking the first whose wrapper.h matches the vendored copy. When set it
+#     verifies the ref matches (ABI guard) and aborts if not. The right ref is
+#     the one whose wrapper.h is byte-identical to third_party/llama-go/wrapper.h.
 #
 #   Run it once per OS/arch you need to support:
 #     - Linux amd64  -> writes third_party/llama-go/linux/amd64/
@@ -48,12 +51,17 @@ case "$OS" in
   *) echo "ERROR: unsupported OS '$OS' (expected linux or darwin)" >&2; exit 1 ;;
 esac
 
-ARCH="$(uname -m)"
-case "$ARCH" in
-  x86_64)         GOARCH="amd64" ;;
-  arm64|aarch64)  GOARCH="arm64" ;;
-  *) echo "ERROR: unsupported arch '$ARCH'" >&2; exit 1 ;;
-esac
+# Allow cross-arch builds (e.g. building the x86_64 archives on an ARM64 CI
+# runner). When GOARCH is unset, detect it from the host.
+GOARCH="${GOARCH:-}"
+if [ -z "$GOARCH" ]; then
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    x86_64)         GOARCH="amd64" ;;
+    arm64|aarch64)  GOARCH="arm64" ;;
+    *) echo "ERROR: unsupported arch '$ARCH'" >&2; exit 1 ;;
+  esac
+fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LLAMA_GO_ROOT="$REPO_ROOT/third_party/llama-go"
@@ -61,34 +69,59 @@ DEST="$LLAMA_GO_ROOT/$OS/$GOARCH"
 LLAMA_GO_REF="${LLAMA_GO_REF:-}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 
-if [ -z "$LLAMA_GO_REF" ]; then
-  cat >&2 <<'EOF'
-ERROR: LLAMA_GO_REF is required.
-
-Set it to the llama-go commit/tag whose wrapper.h is vendored in
-third_party/llama-go. The script clones that ref, verifies its wrapper.h
-matches the vendored one, and aborts if it doesn't. Pick a ref until the
-verification passes.
-
-  LLAMA_GO_REF=v2.0.0 ./scripts/build-llamago-archives.sh
-EOF
-  exit 1
-fi
-
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-echo "==> Cloning llama-go at $LLAMA_GO_REF (with llama.cpp submodule)"
-git clone --recurse-submodules https://github.com/tcpipuk/llama-go "$TMP/llama-go"
-git -C "$TMP/llama-go" checkout --force "$LLAMA_GO_REF"
-git -C "$TMP/llama-go" submodule update --init --recursive
+echo "==> Cloning llama-go (sources only)"
+git clone https://github.com/tcpipuk/llama-go "$TMP/llama-go"
 
-# ABI guard: the fetched source must match the vendored headers.
-if ! diff -q "$TMP/llama-go/wrapper.h" "$LLAMA_GO_ROOT/wrapper.h" >/dev/null 2>&1; then
-  echo "ERROR: llama-go $LLAMA_GO_REF wrapper.h does not match the vendored" >&2
-  echo "       third_party/llama-go/wrapper.h. Choose a different LLAMA_GO_REF." >&2
-  exit 1
+# Determine the llama-go ref whose wrapper.h matches the vendored one. The
+# Go<->C++ ABI depends on this being exactly right, so pick it by ABI guard
+# rather than guessing. If LLAMA_GO_REF is set, verify it; otherwise
+# auto-detect by trying HEAD, then all tags (newest-first), and taking the
+# first ref whose wrapper.h matches the vendored copy.
+find_matching_ref() {
+  local refs=()
+  refs+=("HEAD")
+  while IFS= read -r t; do
+    refs+=("$t")
+  done < <(git -C "$TMP/llama-go" tag --sort=-version:refname)
+
+  for ref in "${refs[@]}"; do
+    if ! git -C "$TMP/llama-go" checkout --force "$ref" >/dev/null 2>&1; then
+      continue
+    fi
+    if diff -q "$TMP/llama-go/wrapper.h" "$LLAMA_GO_ROOT/wrapper.h" >/dev/null 2>&1; then
+      echo "$ref"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if [ -n "$LLAMA_GO_REF" ]; then
+  REF="$LLAMA_GO_REF"
+  git -C "$TMP/llama-go" checkout --force "$REF" >/dev/null 2>&1 || {
+    echo "ERROR: could not checkout llama-go '$LLAMA_GO_REF'" >&2
+    exit 1
+  }
+  # ABI guard: the fetched source must match the vendored headers.
+  if ! diff -q "$TMP/llama-go/wrapper.h" "$LLAMA_GO_ROOT/wrapper.h" >/dev/null 2>&1; then
+    echo "ERROR: llama-go $LLAMA_GO_REF wrapper.h does not match the vendored" >&2
+    echo "       third_party/llama-go/wrapper.h. Choose a different LLAMA_GO_REF." >&2
+    exit 1
+  fi
+else
+  REF="$(find_matching_ref)" || {
+    echo "ERROR: could not find a llama-go ref whose wrapper.h matches the" >&2
+    echo "       vendored third_party/llama-go/wrapper.h." >&2
+    exit 1
+  }
+  echo "==> Auto-detected llama-go ref: $REF"
 fi
+
+echo "==> Updating llama.cpp submodule at $REF"
+git -C "$TMP/llama-go" submodule update --init --recursive
 
 CMAKE="${CMAKE:-cmake}"
 CC="${CC:-gcc}"
@@ -107,9 +140,16 @@ if [ "$OS" = "linux" ]; then
   EXTRA+=(-DGGML_OPENMP=ON)
   EXTRA+=(-DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX")
 elif [ "$OS" = "darwin" ]; then
+  # Map the Go arch name to the Apple arch name cmake expects.
+  case "$GOARCH" in
+    amd64) OSX_ARCH="x86_64" ;;
+    arm64) OSX_ARCH="arm64" ;;
+    *) echo "ERROR: unsupported GOARCH '$GOARCH' for darwin" >&2; exit 1 ;;
+  esac
   EXTRA+=(-DGGML_METAL=ON -DGGML_BLAS=ON)
   EXTRA+=(-DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX")
   EXTRA+=(-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0)
+  EXTRA+=(-DCMAKE_OSX_ARCHITECTURES="$OSX_ARCH")
 fi
 
 "$CMAKE" -S "$TMP/llama-go/llama.cpp" -B "$BUILD" \
