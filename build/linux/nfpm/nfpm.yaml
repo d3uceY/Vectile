@@ -25,10 +25,12 @@ contents:
     dst: "/usr/share/applications/vectile.desktop"
 
 # Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
+# (libstdc++6 is the C++ runtime the binary and llama.cpp are linked against.)
 depends:
   - libgtk-4-1
   - libwebkitgtk-6.0-4
   - libgomp1
+  - libstdc++6
 
 # Distribution-specific overrides for different package formats
 overrides:

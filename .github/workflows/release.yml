@@ -236,7 +236,7 @@ jobs:
       # wrapper.h. (libgomp.so.1 for the AppImage is bundled by build.sh.)
       - name: Build llama-go Linux archives
         run: |
-          ./scripts/build-llamago-archives.sh
+          bash ./scripts/build-llamago-archives.sh
 
       - name: Build Linux binary
         env:
@@ -247,7 +247,7 @@ jobs:
           C_INCLUDE_PATH: ${{ github.workspace }}/third_party/llama-go
         run: |
           mkdir -p bin
-          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X main.Version=${{ needs.validate-tag.outputs.version }}" -o bin/vectile
+          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X main.Version=v${{ needs.validate-tag.outputs.version }}" -o bin/vectile
 
       - name: Build .deb package
         env:
@@ -309,14 +309,19 @@ jobs:
       - name: Inject version into Info.plist
         run: |
           VERSION="${{ needs.validate-tag.outputs.version }}"
-          sed -i '' -e "s|<string>0.1.0</string>|<string>${VERSION}</string>|g" build/darwin/Info.plist
+          # Target the two version keys directly (not a hardcoded old value), so
+          # this keeps working as the version bumps.
+          sed -i '' \
+            -e "/<key>CFBundleVersion<\/key>/{n;s|<string>[^<]*</string>|<string>${VERSION}</string>|;}" \
+            -e "/<key>CFBundleShortVersionString<\/key>/{n;s|<string>[^<]*</string>|<string>${VERSION}</string>|;}" \
+            build/darwin/Info.plist
 
       # third_party/llama-go/darwin/{arm64,amd64} is NOT committed. Build both
       # archive sets here (the runner is ARM64, so amd64 is cross-built).
       - name: Build llama-go macOS archives
         run: |
-          GOARCH=arm64 ./scripts/build-llamago-archives.sh
-          GOARCH=amd64 ./scripts/build-llamago-archives.sh
+          GOARCH=arm64 bash ./scripts/build-llamago-archives.sh
+          GOARCH=amd64 bash ./scripts/build-llamago-archives.sh
 
       - name: Build macOS ARM64 binary
         env:
@@ -330,7 +335,7 @@ jobs:
           C_INCLUDE_PATH: ${{ github.workspace }}/third_party/llama-go
         run: |
           mkdir -p build/bin
-          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X main.Version=${{ needs.validate-tag.outputs.version }}" -o build/bin/vectile-arm64
+          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X main.Version=v${{ needs.validate-tag.outputs.version }}" -o build/bin/vectile-arm64
 
       - name: Build macOS AMD64 binary
         env:
@@ -343,7 +348,7 @@ jobs:
           LIBRARY_PATH: ${{ github.workspace }}/third_party/llama-go/darwin/amd64
           C_INCLUDE_PATH: ${{ github.workspace }}/third_party/llama-go
         run: |
-          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X main.Version=${{ needs.validate-tag.outputs.version }}" -o build/bin/vectile-amd64
+          go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X main.Version=v${{ needs.validate-tag.outputs.version }}" -o build/bin/vectile-amd64
 
       - name: Create universal binary
         run: |
@@ -427,7 +432,7 @@ jobs:
             echo "| macOS (universal)   | [vectile-macos-universal.dmg](https://github.com/${{ github.repository }}/releases/download/${CURR_TAG}/vectile-macos-universal.dmg) | |"
             echo "| macOS (universal)   | [vectile-macos-universal.zip](https://github.com/${{ github.repository }}/releases/download/${CURR_TAG}/vectile-macos-universal.zip) | |"
             echo ''
-            echo 'SHA-256 checksums are in \`SHA256SUMS.txt\` attached below.'
+            echo 'SHA-256 checksums are in `SHA256SUMS.txt` attached below.'
             echo ''
             echo '## First-Run Notes'
             echo ''
