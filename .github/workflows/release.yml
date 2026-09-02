@@ -266,7 +266,9 @@ jobs:
         run: |
           mkdir -p dist
           cp bin/vectile dist/vectile-linux-amd64
-          cp bin/vectile.AppImage dist/vectile-linux-amd64.AppImage
+          # wails3 generate appimage names the output <binary>-<arch>.AppImage
+          # (e.g. vectile-x86_64.AppImage), so glob for the real filename.
+          cp bin/*.AppImage dist/vectile-linux-amd64.AppImage
           cp bin/*.deb dist/vectile-linux-amd64.deb
 
       - uses: actions/upload-artifact@v4
