@@ -61,7 +61,7 @@ export function LibraryView() {
       <div class="relative">
         <ViewHeading
           title="Library"
-          note="What's indexed. Remove collections and sources here."
+          note="What's indexed."
         />
       </div>
 
@@ -73,7 +73,7 @@ export function LibraryView() {
               <EmptyState
                 icon={<LibraryIcon size={20} />}
                 title="No collections yet"
-                note="Index an Obsidian vault, a project folder, a Calibre library, or a code repo, and it lands here as a collection you can browse."
+                note="Index a folder or library to see it here."
               >
                 <Button onClick={() => store.setView("settings")}>
                   Add sources in Settings
@@ -83,8 +83,8 @@ export function LibraryView() {
           }
         >
         <div class="sheet overflow-hidden">
-          <div class="flex items-stretch border-b border-line bg-surface/50">
-            <div class="grid flex-1 grid-cols-12 gap-2 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+          <div class="flex items-stretch border-b border-line bg-paper/60">
+            <div class="grid flex-1 grid-cols-12 gap-2 px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
               <span class="col-span-6">Collection</span>
               <span class="col-span-2">Files</span>
               <span class="col-span-2 text-right">Chunks</span>
@@ -131,7 +131,7 @@ export function LibraryView() {
                         <span class="data col-span-2 text-right text-muted">
                           {c.chunks.toLocaleString()}
                         </span>
-                        <span class="data col-span-2 text-right text-faint">
+                        <span class="data col-span-2 text-right text-muted">
                           {c.lastIndexed ? new Date(c.lastIndexed).toLocaleDateString() : "never"}
                         </span>
                       </button>
@@ -157,13 +157,13 @@ export function LibraryView() {
                     <Show when={isOpen()}>
                       <div class="border-t border-line bg-paper/70">
                         <Show when={c.description}>
-                          <p class="data px-5 pt-3 pb-1 text-faint">{c.description}</p>
+                          <p class="data px-5 pt-3 pb-1 text-muted">{c.description}</p>
                         </Show>
                         <Show
                           when={sources().length > 0}
                           fallback={
                             <div class="px-5 py-3">
-                              <p class="data text-faint">No sources indexed yet.</p>
+                              <p class="data text-muted">No sources indexed yet.</p>
                             </div>
                           }
                         >
@@ -177,13 +177,13 @@ export function LibraryView() {
                                         {s.path}
                                       </span>
                                     </span>
-                                    <span class="data col-span-2 truncate text-faint">
+                                    <span class="data col-span-2 truncate text-muted">
                                       {s.sourceType}
                                     </span>
                                     <span class="data col-span-2 text-right text-muted">
                                       {s.chunks.toLocaleString()}
                                     </span>
-                                    <span class="data col-span-2 text-right text-faint">
+                                    <span class="data col-span-2 text-right text-muted">
                                       {s.lastIndexed
                                         ? new Date(s.lastIndexed).toLocaleDateString()
                                         : "never"}
@@ -222,7 +222,7 @@ export function LibraryView() {
 
         <div class="mt-4 flex items-center gap-2 text-[12.5px] text-muted">
           <LibraryIcon size={14} class="text-faint" />
-          <span>Deleting or moving a file prunes it from search automatically. No stale results.</span>
+          <span>Deleted files are pruned automatically.</span>
         </div>
         </Show>
       </div>

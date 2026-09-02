@@ -62,8 +62,8 @@ export function Chip(props: {
       : tone === "leaf"
         ? "bg-leaf text-white"
         : tone === "code"
-          ? "bg-surface text-muted font-mono"
-          : "bg-surface text-muted";
+          ? "bg-paper text-muted font-mono"
+          : "bg-paper text-muted";
   return (
     <span
       class={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-medium leading-4 ${cls} ${props.class ?? ""}`}
@@ -246,7 +246,7 @@ export function StatusPill(props: {
     >
       {dot}
       <span class="data">{m().label}</span>
-      {props.name && <span class="data text-faint">· {props.name}</span>}
+      {props.name && <span class="data text-muted">· {props.name}</span>}
     </span>
   );
 }
@@ -311,7 +311,7 @@ export function ToastStack(props: {
       <For each={props.toasts}>
         {(t) => (
           <div
-            class={`pointer-events-auto flex items-start gap-3 rounded-card border bg-paper px-4 py-3 shadow-pop ${
+            class={`pointer-events-auto flex items-start gap-3 rounded-card border bg-surface px-4 py-3 shadow-pop ${
               t.tone === "danger" ? "border-danger/40" : "border-line"
             }`}
           >

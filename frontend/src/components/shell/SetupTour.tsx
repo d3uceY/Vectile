@@ -62,7 +62,7 @@ export function SetupTour() {
           popover: {
             title: "Add a folder",
             description:
-              "Point vectile at a folder of notes, books, or project files. It reads them into one private search index.",
+              "Point vectile at a folder of notes, books, or project files.",
             nextBtnText: "Choose a folder",
             onNextClick: async (_el, _step, opts) => {
               const dir = await pickFolder("Choose a folder to index");
@@ -81,7 +81,7 @@ export function SetupTour() {
           popover: {
             title: "Index it",
             description:
-              "Index all turns that folder into a searchable collection. It runs in the background, so the app stays usable.",
+              "Index all turns that folder into a searchable collection.",
             nextBtnText: "Index now",
             onNextClick: (_el, _step, opts) => {
               void store.startIndexAll();
@@ -96,7 +96,7 @@ export function SetupTour() {
           popover: {
             title: "Search your library",
             description:
-              "Ask anything you half-remember. vectile blends exact words with meaning, and Cmd/Ctrl+K focuses this box from anywhere.",
+              "Ask anything you half-remember. Cmd/Ctrl+K focuses this box from anywhere.",
             doneBtnText: "Done",
             // Close explicitly so onDestroyed (which marks the tour seen)
             // always fires, regardless of driver.js's internal last-step

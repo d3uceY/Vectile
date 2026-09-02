@@ -48,7 +48,7 @@ export function IndexProgressBar(props: {
         </div>
       </div>
       <div class="mt-1.5 flex items-center gap-2">
-        <span class="data truncate text-faint">{props.file ?? ""}</span>
+        <span class="data truncate text-muted">{props.file ?? ""}</span>
         <Show when={!preparing()}>
           <span class="data shrink-0 text-leaf-deep">
             {props.current}/{props.total}

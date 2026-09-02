@@ -49,6 +49,8 @@ export function AppShell() {
       <div class="pointer-events-none absolute inset-0 text-ink/10">
         <DotPattern width={20} height={20} cx={1} cy={1} cr={1.25} />
       </div>
+      {/* Soft green ambient wash: the warm atmosphere behind every view */}
+      <div class="lamp-glow pointer-events-none absolute inset-0" aria-hidden="true" />
 
       <Sidebar />
 

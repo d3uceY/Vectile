@@ -231,8 +231,8 @@ export function BrowseView() {
                   }
                   note={
                     store.collections().length > 0
-                      ? "Your sources are set up, but no documents have been indexed yet. Run an index pass and their files and chunks will show up here."
-                      : "Index an Obsidian vault, a project folder, a Calibre library, or a code repo, and its files and chunks show up here."
+                      ? "No documents indexed yet. Run an index pass."
+                      : "Index a folder or library to see its files here."
                   }
                 >
                   <Button
@@ -314,7 +314,7 @@ export function BrowseView() {
                 fallback={
                   <div class="flex h-full items-center justify-center">
                     <p class="note max-w-[16rem] text-center text-[14px] leading-5 text-muted">
-                      No chunks in this library yet. Index it, pick another library, or delete it.
+                      No chunks yet. Index it or pick another library.
                     </p>
                   </div>
                 }
@@ -349,16 +349,16 @@ export function BrowseView() {
               };
               return (
                 <div class="sheet flex min-h-0 flex-1 flex-col overflow-hidden">
-                  <div class="border-b border-line bg-surface/50 px-5 py-4">
+                  <div class="border-b border-line bg-paper/60 px-5 py-4">
                     <h3 class="title text-[16px] leading-6 tracking-[-0.005em] text-ink">
                       {d().title}
                     </h3>
-                    <p class="data mt-1.5 truncate text-faint">{src()?.path ?? ""}</p>
+                    <p class="data mt-1.5 truncate text-muted">{src()?.path ?? ""}</p>
                     <div class="mt-3 flex flex-wrap items-center gap-1.5">
                       <Chip tone="mint">{col()?.name ?? String(d().collectionId)}</Chip>
-                      <span class="data text-faint">chunk {d().chunkIndex + 1}</span>
+                      <span class="data text-muted">chunk {d().chunkIndex + 1}</span>
                       {tags().length > 0 && (
-                        <span class="data text-faint">{tags().map((t) => `#${t}`).join(" ")}</span>
+                        <span class="data text-muted">{tags().map((t) => `#${t}`).join(" ")}</span>
                       )}
                     </div>
                   </div>

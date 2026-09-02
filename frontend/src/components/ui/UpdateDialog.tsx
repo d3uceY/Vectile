@@ -34,7 +34,7 @@ export function UpdateDialog(props: {
 
           <div class="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-[9px] border border-line bg-line">
             <div class="bg-paper-warm px-3.5 py-2.5">
-              <p class="data text-[10.5px] uppercase tracking-[0.12em] text-faint">installed</p>
+              <p class="data text-[10.5px] uppercase tracking-[0.12em] text-muted">installed</p>
               <p class="data mt-1 text-[13px] text-muted">{props.current}</p>
             </div>
             <div class="bg-mint px-3.5 py-2.5">

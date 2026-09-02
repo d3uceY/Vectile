@@ -27,7 +27,7 @@ function Highlighted(props: { text: string; terms: string[] }) {
       <For each={parts()}>
         {(p) =>
           p.hit ? (
-            <mark class="rounded-sm bg-highlighter px-px text-ink">{p.text}</mark>
+            <mark class="rounded-sm bg-highlighter px-px text-paper">{p.text}</mark>
           ) : (
             <>{p.text}</>
           )
@@ -90,7 +90,7 @@ export function ResultCard(props: { result: SearchResult; terms: string[]; rank:
         <h3 class="title min-w-0 flex-1 text-[15px] leading-6 tracking-[-0.005em] text-ink">
           <Highlighted text={r().title} terms={props.terms} />
         </h3>
-        <span class="data mt-1 shrink-0 text-leaf-deep">{score()}</span>
+        <span class="data mt-1 shrink-0 text-leaf">{score()}</span>
       </button>
 
       <p class="read mt-1.5 line-clamp-3 text-[14.5px] leading-[1.6] text-muted">
@@ -98,13 +98,13 @@ export function ResultCard(props: { result: SearchResult; terms: string[]; rank:
       </p>
 
       <Show when={open()}>
-        <div class="mt-3 rounded-[10px] border border-line bg-surface/60 p-4">
+        <div class="mt-3 rounded-[10px] border border-line bg-paper/70 p-4">
           <p class="read max-h-48 overflow-y-auto whitespace-pre-wrap text-[14.5px] leading-[1.65] text-ink-soft">
             {r().content}
           </p>
           <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
             <Show when={meta().length > 0}>
-              <p class="data text-faint">{meta().join(" · ")}</p>
+              <p class="data text-muted">{meta().join(" · ")}</p>
             </Show>
             <span class="ml-auto flex items-center gap-1.5">
               <button
@@ -131,9 +131,9 @@ export function ResultCard(props: { result: SearchResult; terms: string[]; rank:
 
       <div class="mt-3 flex items-center gap-2 overflow-hidden">
         <Chip tone="mint">{r().collection}</Chip>
-        <span class="data shrink-0 text-faint">{r().sourceType}</span>
+        <span class="data shrink-0 text-muted">{r().sourceType}</span>
         <span class="mx-0.5 h-3 w-px shrink-0 bg-line-strong" aria-hidden="true" />
-        <span class="data truncate text-faint">{r().sourcePath}</span>
+        <span class="data truncate text-muted">{r().sourcePath}</span>
         <button
           type="button"
           class="ml-auto flex shrink-0 items-center gap-1 rounded-control px-2 py-1 text-[12px] font-medium text-muted transition-colors duration-150 ease-snappy hover:bg-surface hover:text-ink"

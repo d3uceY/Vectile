@@ -244,7 +244,7 @@ export function SearchView() {
 function FilterField(props: { label: string; children: JSX.Element }) {
   return (
     <label class="flex flex-col gap-1.5">
-      <span class="text-[11.5px] font-medium uppercase tracking-[0.08em] text-faint">
+      <span class="text-[11.5px] font-medium uppercase tracking-[0.08em] text-muted">
         {props.label}
       </span>
       {props.children}
@@ -259,14 +259,14 @@ function IdleState(props: { onPick: (q: string) => void }) {
         <GridPattern width={32} height={32} />
       </div>
       <div class="relative flex flex-col items-center text-center">
-        <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-card border border-line bg-paper text-leaf shadow-card">
+        <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-card border border-line bg-surface text-leaf shadow-card">
           <BoltIcon size={20} />
         </div>
         <h2 class="title text-[22px] tracking-[-0.02em] text-ink">
           Ask your library
         </h2>
         <p class="note mt-2 max-w-[36ch] text-[15.5px] leading-6 text-muted">
-          Every query searches meaning and exact words, then blends the two. Type anything you half-remember.
+          Searches meaning and exact words together.
         </p>
         <div class="mt-6 flex max-w-md flex-wrap items-center justify-center gap-2">
           <For each={exampleQueries}>
@@ -312,13 +312,13 @@ function ResultList() {
         <EmptyState
           icon={<SearchIcon size={20} />}
           title="Nothing matched"
-          note="Try fewer words, or drop a filter. Exact phrases are quoted; everything else is fuzzy."
+          note="Try fewer words or drop a filter."
         />
       }
     >
       <div class="enter-stagger space-y-3">
         <div class="flex items-center justify-between gap-3">
-          <p class="data text-faint">
+          <p class="data text-muted">
             {results().length} result{results().length === 1 ? "" : "s"} · hybrid ranked
           </p>
           <div

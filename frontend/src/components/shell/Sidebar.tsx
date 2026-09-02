@@ -43,8 +43,8 @@ function ModelPlate(props: { state: ModelState; name?: string }) {
         <span class={`h-2 w-2 rounded-full ${m().dot} ${props.state === "loaded" ? "pulse-dot" : ""}`} />
       </span>
       <span class={`data shrink-0 transition-colors ${m().text}`}>{m().label}</span>
-      <span class="data min-w-0 truncate text-faint">{props.name ?? "…"}</span>
-      <span class="data shrink-0 text-faint">local</span>
+      <span class="data min-w-0 truncate text-muted">{props.name ?? "…"}</span>
+      <span class="data shrink-0 text-muted">local</span>
     </span>
   );
 }
@@ -54,7 +54,7 @@ export function Sidebar() {
   return (
     /* Full sidebar with labels at md+; collapses to an icon rail below so a
        narrow window still leaves room for the content column. */
-    <aside class="flex w-16 shrink-0 flex-col border-r  border-line bg-white md:w-56">
+    <aside class="flex w-16 shrink-0 flex-col border-r border-line bg-sidebar md:w-56">
       {/* Title plate */}
       <div class="flex flex-col items-center gap-2.5 pb-4 pt-6 md:block md:px-5">
         <div class="flex items-center justify-center gap-3 md:justify-start">

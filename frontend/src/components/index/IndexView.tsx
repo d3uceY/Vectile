@@ -65,7 +65,7 @@ export function IndexView() {
             <EmptyState
               icon={<IndexIcon size={20} />}
               title="Nothing configured yet"
-              note="Add an Obsidian vault, a project folder, a Calibre library, or a code repo under Settings."
+              note="Add a folder or library under Settings."
             >
               <Button onClick={() => store.setView("settings")}>
                 Add sources in Settings
@@ -89,7 +89,7 @@ export function IndexView() {
                         {!item.enabled && <Chip>disabled</Chip>}
                         {col()?.needsReindex && <Chip tone="mint">needs reindex</Chip>}
                       </div>
-                      <p class="data mt-1 text-faint">
+                      <p class="data mt-1 text-muted">
                         {col() ? `${col()!.sources} sources · ${col()!.chunks.toLocaleString()} chunks` : "not indexed yet"}
                       </p>
                     </div>

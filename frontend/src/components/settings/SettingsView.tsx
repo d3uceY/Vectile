@@ -150,7 +150,7 @@ function RangeField(props: {
           {props.format ? props.format(props.value) : props.value.toFixed(2)}
         </span>
         {props.suffix && (
-          <span class="shrink-0 text-[12px] text-faint tabular-nums">{props.suffix}</span>
+          <span class="shrink-0 text-[12px] text-muted tabular-nums">{props.suffix}</span>
         )}
       </span>
     </div>
@@ -185,7 +185,7 @@ function PathList(props: {
   return (
     <div class="flex flex-col gap-2">
       {props.values.length === 0 ? (
-        <p class="rounded-control border border-dashed border-line bg-surface/40 px-3 py-2.5 text-[13px] leading-5 text-faint">
+        <p class="rounded-control border border-dashed border-line bg-paper/40 px-3 py-2.5 text-[13px] leading-5 text-muted">
           {props.empty ?? "Nothing here yet. Add a path below."}
         </p>
       ) : (
@@ -257,7 +257,7 @@ function ChipList(props: {
   return (
     <div class="flex flex-col gap-2">
       {props.values.length === 0 ? (
-        <p class="text-[12.5px] leading-4 text-faint">None. Every folder inside a vault is indexed.</p>
+        <p class="text-[12.5px] leading-4 text-muted">None. Every folder inside a vault is indexed.</p>
       ) : (
         <ul class="flex flex-wrap gap-1.5">
           <For each={props.values}>
@@ -341,7 +341,7 @@ function GroupItem(props: {
         </button>
       </div>
       {props.paths.length === 0 ? (
-        <p class="text-[12.5px] leading-4 text-faint">No paths yet.</p>
+        <p class="text-[12.5px] leading-4 text-muted">No paths yet.</p>
       ) : (
         <ul class="divide-y divide-line/60">
           <For each={props.paths}>
@@ -407,7 +407,7 @@ function GroupList(props: {
   return (
     <div class="flex flex-col gap-2">
       {entries().length === 0 ? (
-        <p class="rounded-control border border-dashed border-line bg-surface/40 px-3 py-2.5 text-[13px] leading-5 text-faint">
+        <p class="rounded-control border border-dashed border-line bg-paper/40 px-3 py-2.5 text-[13px] leading-5 text-muted">
           {props.empty ?? "No groups yet. Create one below, then add its folders."}
         </p>
       ) : (
@@ -523,8 +523,8 @@ function Snippet(props: { label: string; code: string; multiline?: boolean }) {
   };
   return (
     <div>
-      <p class="data mb-1 text-[11.5px] font-medium uppercase tracking-[0.08em] text-faint">{props.label}</p>
-      <div class="flex items-center gap-2 rounded-control border border-line bg-surface/60 px-3 py-2">
+      <p class="data mb-1 text-[11.5px] font-medium uppercase tracking-[0.08em] text-muted">{props.label}</p>
+      <div class="flex items-center gap-2 rounded-control border border-line bg-paper/60 px-3 py-2">
         <code
           class={`data min-w-0 flex-1 font-mono text-[12px] leading-5 text-ink-soft ${
             props.multiline ? "whitespace-pre-wrap break-all" : "truncate"
@@ -916,7 +916,7 @@ export function SettingsView() {
         <div class="scroll-quiet -mr-2 flex-1 overflow-y-auto pb-20 pr-2">
           <Section
             title="Model"
-            note="The embedding engine runs in-process. Import a .gguf below, or drop one into the models folder of the vectile data directory. It shows up here automatically."
+            note="The embedding engine runs in-process. Drop a .gguf into the models folder, or import one below."
           >
             <div class="flex flex-wrap items-center gap-3">
               <StatusPill state={store.modelState()} name={store.modelName()} />
@@ -944,7 +944,7 @@ export function SettingsView() {
 
             <Show when={activeModel()}>
               {(m) => (
-                <div class="rounded-control border border-line bg-surface/40 p-3">
+                <div class="rounded-control border border-line bg-paper/60 p-3">
                   <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
                     {m().name} settings
                     <InfoTip text="Each model carries its own settings. Context window 0 falls back to the model's native maximum (shown here when the .gguf reports one); threads 0 uses all cores." />
@@ -1048,7 +1048,7 @@ export function SettingsView() {
             />
           </Section>
 
-          <Section title="Chunking" note="Word-based windows. Smaller chunks match more precisely; overlap keeps split sentences intact.">
+          <Section title="Chunking" note="Smaller chunks match more precisely; overlap keeps sentences intact.">
             <NumField
               label="Chunk size (words)"
               value={draft()!.chunk_size_tokens}
@@ -1108,11 +1108,11 @@ export function SettingsView() {
             />
           </Section>
 
-          <Section title="Sources" note="Folders are walked recursively. Code repositories discover nested git repos automatically.">
+          <Section title="Sources" note="Folders are walked recursively; nested git repos are discovered automatically.">
             <div class="space-y-7">
               <SourceGroup
                 title="Documents"
-                note="Notes and books you read, searchable by meaning as well as keyword."
+                note="Notes and books you read, searchable by meaning and keyword."
               >
                 <div class="grid items-start gap-x-8 gap-y-6 md:grid-cols-2">
                   <div class="space-y-3">
@@ -1133,7 +1133,7 @@ export function SettingsView() {
                         empty="No vaults yet. Add one and its notes become searchable."
                       />
                     </div>
-                    <div class="space-y-2.5 rounded-control border border-line bg-surface/40 p-3">
+                    <div class="space-y-2.5 rounded-control border border-line bg-paper/60 p-3">
                       <SourceHeading
                         icon={<SlashIcon size={14} />}
                         title="Excluded folders"
@@ -1171,7 +1171,7 @@ export function SettingsView() {
 
               <SourceGroup
                 title="Code"
-                note="Folders you work in, grouped into searchable collections. How far back git history goes is set under Indexing."
+                note="Folders you work in, grouped into searchable collections."
               >
                 <div class="grid items-start gap-x-8 gap-y-6 md:grid-cols-2">
                   <div class="space-y-3">
@@ -1261,7 +1261,7 @@ export function SettingsView() {
               onChange={(v) => setMascotAll(v)}
               label="Disable Vexter"
               description="Hide the mascot for every moment at once."
-              hint="Vexter is the small pixel dinosaur in the sidebar. When this is on, it never appears — whether you're searching, indexing, or turning up nothing."
+              hint="Vexter is the small pixel dinosaur in the sidebar. When this is on, it never appears, whether you're searching, indexing, or turning up nothing."
             />
             <div class="divide-y divide-line/60 overflow-hidden rounded-control border border-line bg-paper">
               <For each={MASCOT_STATES}>
@@ -1288,7 +1288,7 @@ export function SettingsView() {
 
           <Section
             title="Connect"
-            note="Let AI assistants on this machine search your library through a local MCP server. Read-only: clients can search, never change."
+            note="Let AI assistants on this machine search your library. Read-only: they can search, never change."
           >
             {/* Status plate: live from the backend, not the draft */}
             <div class="rounded-[9px] border border-line bg-paper-warm px-3.5 py-3">
@@ -1301,7 +1301,7 @@ export function SettingsView() {
                 </span>
                 <Show when={running()}>
                   <button
-                    class="ml-auto flex shrink-0 items-center gap-1 rounded-control px-1.5 py-1 text-[11.5px] text-faint transition-colors hover:bg-surface hover:text-leaf-deep"
+                    class="ml-auto flex shrink-0 items-center gap-1 rounded-control px-1.5 py-1 text-[11.5px] text-muted transition-colors hover:bg-surface hover:text-leaf-deep"
                     onClick={() => void copyUrl()}
                     title="Copy URL"
                   >
@@ -1370,7 +1370,7 @@ export function SettingsView() {
             <div>
               <h4 class="text-[13px] font-semibold tracking-[-0.01em] text-ink">How to connect</h4>
               <p class="note mb-2 mt-0.5 text-[12.5px] leading-4 text-muted">
-                Point an MCP client at the URL below. The server must be running first.
+                Point an MCP client at the URL below.
               </p>
               <div class="space-y-3">
                 <Snippet label="Claude Desktop" code={claudeJson()} multiline />

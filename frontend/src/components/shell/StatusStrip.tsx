@@ -32,9 +32,9 @@ export function StatusStrip(props: { version?: string }) {
   return (
     <header class="flex h-13 shrink-0 items-center justify-between gap-3 border-b border-line bg-paper/70 px-6">
       <div class="flex min-w-0 items-center gap-4">
-        <span class="data shrink-0 text-faint">all local</span>
+        <span class="data shrink-0 text-muted">all local</span>
         <span class="h-3 w-px shrink-0 bg-line-strong" aria-hidden="true" />
-        <span class="data truncate text-faint">
+        <span class="data truncate text-muted">
           {totals().collections} collections · {totals().chunks.toLocaleString()} chunks
           {totals().size ? ` · ${totals().size}` : ""}
           {lastIndexedLabel(st()?.lastIndexed ?? "")}
@@ -50,7 +50,7 @@ export function StatusStrip(props: { version?: string }) {
         </button>
         {props.version && (
           <button
-            class="data hidden shrink-0 cursor-pointer text-faint transition-colors hover:text-leaf-deep md:inline"
+            class="data hidden shrink-0 cursor-pointer text-muted transition-colors hover:text-leaf-deep md:inline"
             title="vectile on GitHub"
             onClick={() => openExternal(HOME_URL)}
           >

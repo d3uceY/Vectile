@@ -1,8 +1,9 @@
 /* ============================================================
    vectile: design tokens + base styles
-   World: "field notebook / index-card library"
-   Bright paper ground, graph-paper dot + grid, one friendly
-   green accent, mono data labels, serif-italic margin notes.
+   World: "field notebook / warm index-card library"
+   Warm cream ground, graph-paper dot + grid, a soft green
+   ambient wash, one friendly green accent, mono data labels,
+   serif-italic margin notes.
    ============================================================ */
 
 /* Self-hosted type (a desktop app must never hit a CDN at runtime) */
@@ -22,21 +23,24 @@
   --font-serif: "Fraunces Variable", "Fraunces", Georgia, "Times New Roman", serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  /* Paper + ink */
-  --color-paper: #fbfcff;
-  --color-paper-warm: #fdfcf7;
-  --color-surface: #f5f8f5;
+  /* Warm paper ground + a soft green ambient wash. Still light and airy, but
+     the ground is cream and green reads as a surface (sidebar, cards, chips). */
+  --color-paper: #fbf8f0;
+  --color-paper-warm: #f4efe1;
+  --color-surface: #e9f0e0;
+  --color-surface-2: #dcead0;
+  --color-sidebar: #edf2e3;
   --color-ink: #1b2226;
   --color-ink-soft: #39434b;
-  --color-muted: #56616b;
-  --color-faint: #66707a; /* ≥4.5:1 on paper */
-  --color-line: #e4e8ec;
-  --color-line-strong: #d1d8de;
+  --color-muted: #4f5950; /* ≥4.5:1 on paper; micro-labels use muted */
+  --color-faint: #667068; /* data labels */
+  --color-line: #e4e7dc;
+  --color-line-strong: #d0d6c8;
 
   /* The one accent: friendly leaf green */
-  --color-mint: #e5f6ec;
-  --color-mint-strong: #c9eed8;
-  --color-mint-deep: #a7e2bf;
+  --color-mint: #e3f3e7;
+  --color-mint-strong: #c7ead4;
+  --color-mint-deep: #a9e3c0;
   --color-leaf: #1f8a50;
   --color-leaf-deep: #177340;
   --color-leaf-soft: #45a06b;
@@ -83,6 +87,7 @@
     text-rendering: optimizeLegibility;
     overflow: hidden; /* the app shell owns scrolling, not the page */
     font-feature-settings: "ss01" on, "cv01" on;
+    color-scheme: light;
   }
 
   /* App chrome is not a document: nothing selects by default, text
@@ -155,11 +160,24 @@
     letter-spacing: -0.01em;
   }
 
-  /* Paper card with a hairline border */
+  /* Paper card on the green surface: a distinct fill so it reads as a card
+     against the warm ground, plus a hairline border and a slight lift. */
   .sheet {
-    background-color: var(--color-paper);
+    background-color: var(--color-surface);
     border: 1px solid var(--color-line);
     border-radius: var(--radius-card);
+    box-shadow: 0 1px 2px rgb(27 34 38 / 0.04);
+  }
+
+  /* Warm paper + green ambient wash: a soft green haze behind the hero/content.
+     A radial gradient, never a box-shadow halo (depth stays in --shadow-card). */
+  .lamp-glow {
+    background: radial-gradient(
+      70% 62% at 50% 0%,
+      rgb(31 138 80 / 0.10) 0%,
+      rgb(31 138 80 / 0.03) 46%,
+      transparent 76%
+    );
   }
 
   /* Draggable progress-bar slider for 0..1 blends (search weights). The track
