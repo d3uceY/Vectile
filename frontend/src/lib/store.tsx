@@ -333,7 +333,9 @@ export function createAppStore() {
   // Model library: refresh the installed-models list from the backend.
   const loadModels = async () => {
     try {
-      setModels(await api.listModels());
+      // Always hand the signal a fresh array so a reused/mutated list from the
+      // backend still triggers reactivity (a same-reference set is a no-op).
+      setModels([...(await api.listModels())]);
     } catch {
       /* backend not ready yet */
     }

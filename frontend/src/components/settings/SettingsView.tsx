@@ -1,4 +1,4 @@
-import { createEffect, createSignal, createUniqueId, For, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, createUniqueId, For, Show, type JSX } from "solid-js";
 import { useAppStore } from "../../lib/store";
 import { importModel, pickFolder, pickModelFile } from "../../lib/api";
 import type { AppConfig, GUIConfig, MascotConfig, MCPConfig, ModelInfo, SearchDefaults } from "../../lib/types";
@@ -941,7 +941,7 @@ export function SettingsView() {
               </div>
               <div class="space-y-2">
                 <For each={store.recommended()}>{(m) => {
-                  const installed = store.models().some((x) => baseName(x.path) === m.file);
+                  const installed = createMemo(() => store.models().some((x) => baseName(x.path) === m.file));
                   return (
                     <div class="rounded-control border border-line bg-paper p-2.5">
                       <div class="flex items-center justify-between gap-3">
@@ -958,7 +958,7 @@ export function SettingsView() {
                           <p class="mt-0.5 text-[12.5px] text-faint">{m.description}</p>
                         </div>
                         <Show when={store.downloadState()?.key !== m.key}>
-                          <Show when={!installed} fallback={
+                          <Show when={!installed()} fallback={
                             <div class="flex items-center gap-2">
                               <span class="rounded-control bg-mint px-1.5 py-0.5 text-[10.5px] font-medium text-leaf-deep">installed</span>
                               <Button size="sm" variant="danger" onClick={() => store.uninstallCatalogFile(m.file)}>Uninstall</Button>
