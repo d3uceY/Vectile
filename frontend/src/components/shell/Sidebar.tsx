@@ -54,7 +54,7 @@ export function Sidebar() {
   return (
     /* Full sidebar with labels at md+; collapses to an icon rail below so a
        narrow window still leaves room for the content column. */
-    <aside class="flex w-16 shrink-0 flex-col border-r border-line bg-sidebar md:w-56">
+    <aside class="relative flex w-16 shrink-0 flex-col border-r border-line bg-sidebar md:w-56">
       {/* Title plate */}
       <div class="flex flex-col items-center gap-2.5 pb-4 pt-6 md:block md:px-5">
         <div class="flex items-center justify-center gap-3 md:justify-start">
