@@ -2,7 +2,7 @@ import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import * as api from "../../lib/api";
 import { useAppStore } from "../../lib/store";
 import { fetchLatestRelease, isDesktop, isNewer } from "../../lib/update";
-import { DotPattern } from "../ui/patterns";
+import { NoiseTexture } from "../ui/noise-texture";
 import { ToastStack } from "../ui/primitives";
 import { UpdateDialog } from "../ui/UpdateDialog";
 import { ModelDownloadDialog } from "../ui/ModelDownloadDialog";
@@ -46,9 +46,10 @@ export function AppShell() {
 
   return (
     <div class="relative flex h-full overflow-hidden bg-paper text-ink">
-      {/* Graph-paper ground: visible but quiet, behind everything */}
+      {/* Film-grain ground: the noise texture behind the content, quiet and
+          never over the sidebar (which paints above it) */}
       <div class="pointer-events-none absolute inset-0 text-ink/10">
-        <DotPattern width={20} height={20} cx={1} cy={1} cr={1.25} />
+        <NoiseTexture />
       </div>
       {/* Soft green ambient wash: the warm atmosphere behind every view */}
       <div class="lamp-glow pointer-events-none absolute inset-0" aria-hidden="true" />
