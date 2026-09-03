@@ -22,7 +22,7 @@ export function NoiseTexture(props: NoiseTextureProps) {
   const { frequency = 0.4, octaves = 6, slope = 0.15, noiseOpacity = 0.6 } = props;
   return (
     <svg
-      class={`pointer-events-none absolute inset-0 z-0 h-full w-full select-none opacity-50 ${props.class ?? ""}`}
+      class={`pointer-events-none absolute inset-0 z-0 h-full w-full select-none opacity-25 ${props.class ?? ""}`}
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >

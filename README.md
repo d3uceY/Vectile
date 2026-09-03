@@ -54,7 +54,7 @@ Screenshots show sample data.
   <tr>
     <td><img src="docs/screenshots/library.png" alt="Library view: collections with sources and chunk counts" width="100%"></td>
     <td><img src="docs/screenshots/browse.png" alt="Browse view: a file tree of collections, files, and chunks with a preview pane" width="100%"></td>
-    <td><img src="docs/screenshots/settings.png" alt="Settings view: model, chunking, and search options" width="100%"></td>
+    <td><img src="docs/screenshots/settings.png" alt="Settings view: download an embedding model, chunking, and search options" width="100%"></td>
   </tr>
 </table>
 
@@ -92,14 +92,14 @@ task package      # package an installer for the current OS
 
 ### Installing the model
 
-The app never downloads an embedding model. Drop a `.gguf` file into the `models/` folder inside the app data directory, or import one from Settings (a native file dialog copies it into `models/`). The default model is bge-m3.
+Drop a `.gguf` file into the `models/` folder inside the app data directory, import one from Settings (a native file dialog copies it into `models/`), or grab one from the curated catalog right in the app — Settings → Model → **Get a model** downloads an embedding model with a click, with a live progress bar. The default model is bge-m3.
 
 ## Quick start
 
 On a fresh install, a short tour walks you through it: add a folder, index it, then search.
 
 1. Launch vectile.
-2. Import an embedding model in Settings, or drop a `.gguf` into `models/`.
+2. Download or import an embedding model in Settings, or drop a `.gguf` into `models/`.
 3. Add sources in Settings: Obsidian vaults, project folders, code repositories, Calibre libraries.
 4. Open the Index view and index a collection, or everything at once. Unchanged files are skipped, so re-indexing is fast.
 5. Press ⌘K / Ctrl K and search.
@@ -112,7 +112,7 @@ Five views, keyboard-first:
 - **Library**: every collection with its file and chunk counts and the last time it was indexed; expand one to list its files, and remove a source or its documents in place.
 - **Browse**: a file tree of collections, files, and chunks, with a preview pane. Select chunks to delete them, or remove a whole library.
 - **Index**: run "Index new" (only changed files) or "Re-index all" (re-embed everything) per collection, or index all collections at once, with live progress.
-- **Settings**: sources, model, chunking, search defaults, auto-reindex, start-on-login, Vexter (the sidebar mascot), and a Connect section that runs a local MCP server for AI assistants.
+- **Settings**: sources, model (download an embedding model from the curated catalog, or import your own), chunking, search defaults, auto-reindex, start-on-login, Vexter (the sidebar mascot), and a Connect section that runs a local MCP server for AI assistants.
 
 The sidebar shows the model state: idle, loaded, or failed. If the model file is missing or corrupt, vector search falls back to full-text search, so exact-word matches still work.
 
