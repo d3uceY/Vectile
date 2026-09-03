@@ -1,6 +1,6 @@
 import { createSignal, For, Show } from "solid-js";
 import { useAppStore } from "../../lib/store";
-import { Button, Chip, EmptyState, Toggle, ViewHeading } from "../ui/primitives";
+import { Button, Chip, ConfirmDialog, EmptyState, Toggle, ViewHeading } from "../ui/primitives";
 import { IndexIcon } from "../ui/icons";
 import { IndexProgressBar } from "./IndexProgressBar";
 
@@ -141,34 +141,18 @@ export function IndexView() {
       </Show>
 
       {/* Cancel-indexing warning */}
-      <Show when={confirming()}>
-        <div
-          class="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 p-4"
-          onClick={() => setConfirming(null)}
-        >
-          <div class="sheet w-[22rem] p-5 shadow-pop" onClick={(e) => e.stopPropagation()}>
-            <h3 class="title text-[15px] tracking-[-0.01em] text-ink">Cancel indexing {confirming()}?</h3>
-            <p class="read mt-2 text-[13.5px] leading-5 text-muted">
-              Files already indexed are kept. The rest of this run will stop.
-            </p>
-            <div class="mt-4 flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setConfirming(null)}>
-                Keep going
-              </Button>
-              <button
-                type="button"
-                onClick={() => {
-                  void store.cancelIndex();
-                  setConfirming(null);
-                }}
-                class="inline-flex h-8 select-none items-center justify-center gap-2 rounded-control bg-danger px-3 text-[13px] font-medium text-white transition-all duration-150 ease-snappy active:scale-[0.98]"
-              >
-                Cancel run
-              </button>
-            </div>
-          </div>
-        </div>
-      </Show>
+      <ConfirmDialog
+        open={confirming() !== null}
+        title={`Cancel indexing ${confirming()}?`}
+        body={<p>Files already indexed are kept. The rest of this run will stop.</p>}
+        confirmLabel="Cancel run"
+        cancelLabel="Keep going"
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          void store.cancelIndex();
+          setConfirming(null);
+        }}
+      />
     </div>
   );
 }

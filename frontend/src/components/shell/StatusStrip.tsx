@@ -1,14 +1,8 @@
 import { useAppStore } from "../../lib/store";
+import { fmtBytes } from "../../lib/format";
 import { lastIndexedLabel } from "../../lib/time";
 import { HOME_URL, openExternal } from "../../lib/update";
 import { Kbd } from "../ui/primitives";
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
 
 /** Top strip: the model-engine state on the left, library summary on the
     right, and the app version on the far right (click → the GitHub repo). */
@@ -18,7 +12,7 @@ export function StatusStrip(props: { version?: string }) {
   const totals = () => {
     const s = st();
     if (s) {
-      return { collections: s.collections, chunks: s.chunks, size: formatBytes(s.dbSize) };
+      return { collections: s.collections, chunks: s.chunks, size: fmtBytes(s.dbSize) };
     }
     const cols = store.collections();
     return {

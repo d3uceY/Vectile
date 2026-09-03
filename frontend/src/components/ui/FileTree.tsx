@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { CheckIcon, ChevronDown, ChevronRight, FileIcon, FolderIcon, FolderOpenIcon } from "./icons";
 
 export type TreeViewElement = {
@@ -8,8 +8,6 @@ export type TreeViewElement = {
   isSelectable?: boolean;
   children?: TreeViewElement[];
 };
-
-type Sort = "default" | "none" | ((a: TreeViewElement, b: TreeViewElement) => number);
 
 interface Row {
   node: TreeViewElement;
@@ -21,10 +19,8 @@ function isFolder(n: TreeViewElement): boolean {
   return n.type === "folder" || (n.children?.length ?? 0) > 0;
 }
 
-function sortNodes(nodes: TreeViewElement[], sort: Sort): TreeViewElement[] {
-  if (sort === "none") return nodes;
-  const cmp = typeof sort === "function" ? sort : (a: TreeViewElement, b: TreeViewElement) =>
-      a.name.localeCompare(b.name);
+function sortNodes(nodes: TreeViewElement[]): TreeViewElement[] {
+  const cmp = (a: TreeViewElement, b: TreeViewElement) => a.name.localeCompare(b.name);
   const folders = nodes.filter(isFolder).sort(cmp);
   const files = nodes.filter((n) => !isFolder(n)).sort(cmp);
   return [...folders, ...files];
@@ -34,15 +30,8 @@ export function FileTree(props: {
   elements: TreeViewElement[];
   initialSelectedId?: string;
   initialExpandedItems?: string[];
-  indicator?: boolean;
-  openIcon?: JSX.Element;
-  closeIcon?: JSX.Element;
-  fileIcon?: JSX.Element;
-  sort?: Sort;
-  dir?: "ltr" | "rtl";
   onSelect?: (id: string, node: TreeViewElement) => void;
   showExpandAll?: boolean;
-  class?: string;
   /** Show a checkbox on leaf nodes (for bulk select). Clicking it toggles
       the check without selecting the row. */
   checkable?: boolean;
@@ -53,9 +42,6 @@ export function FileTree(props: {
   const [expanded, setExpanded] = createSignal<Set<string>>(
     new Set(props.initialExpandedItems ?? []),
   );
-  const sort = props.sort ?? "default";
-  const dir = props.dir ?? "ltr";
-  const indicator = props.indicator ?? true; // vertical guide lines for nesting
 
   // <For> keys rows by object identity, so reusing the same Row object for a
   // node that stays visible lets Solid keep that node's DOM (focus and the
@@ -67,7 +53,7 @@ export function FileTree(props: {
   const visible = createMemo<Row[]>(() => {
     const out: Row[] = [];
     const walk = (nodes: TreeViewElement[], depth: number) => {
-      for (const n of sortNodes(nodes, sort)) {
+      for (const n of sortNodes(nodes)) {
         const hc = isFolder(n);
         const cached = rowById.get(n.id);
         const row =
@@ -134,11 +120,11 @@ export function FileTree(props: {
     }
   };
 
-  const allExpanded = () => visible().length === flattenedCount(props.elements, sort);
-  const flattenedCount = (nodes: TreeViewElement[], s: Sort): number => {
+  const allExpanded = () => visible().length === flattenedCount(props.elements);
+  const flattenedCount = (nodes: TreeViewElement[]): number => {
     let n = 0;
     const w = (list: TreeViewElement[]) => {
-      for (const node of sortNodes(list, s)) {
+      for (const node of sortNodes(list)) {
         n++;
         if (isFolder(node) && node.children) w(node.children);
       }
@@ -152,7 +138,7 @@ export function FileTree(props: {
       if (allExpanded()) return new Set<string>();
       const all = new Set<string>();
       const w = (nodes: TreeViewElement[]) => {
-        for (const node of sortNodes(nodes, sort)) {
+        for (const node of sortNodes(nodes)) {
           if (isFolder(node)) {
             all.add(node.id);
             if (node.children) w(node.children);
@@ -164,7 +150,7 @@ export function FileTree(props: {
     });
 
   return (
-    <div class={props.class}>
+    <div>
       <Show when={props.showExpandAll}>
         <button
           class="mb-1 flex items-center gap-1.5 px-1 text-[12px] text-faint transition-colors hover:text-leaf"
@@ -174,7 +160,7 @@ export function FileTree(props: {
           {allExpanded() ? "Collapse all" : "Expand all"}
         </button>
       </Show>
-      <div role="tree" aria-label="Indexed files" dir={dir}>
+      <div role="tree" aria-label="Indexed files">
         <For each={rows()}>
           {(row, i) => (
             <button
@@ -192,7 +178,7 @@ export function FileTree(props: {
               } ${row.node.isSelectable === false ? "cursor-default" : "cursor-pointer"}`}
               style={{ "padding-inline-start": `${8 + row.depth * 16}px` }}
             >
-              <Show when={indicator && row.depth > 0}>
+              <Show when={row.depth > 0}>
                 <span
                   aria-hidden="true"
                   class="pointer-events-none absolute inset-y-0 right-7! w-px bg-line-strong"
@@ -228,9 +214,9 @@ export function FileTree(props: {
               <span class="flex h-4 w-4 shrink-0 items-center justify-center">
                 {row.hasChildren
                   ? expanded().has(row.node.id)
-                    ? (props.openIcon ?? <FolderOpenIcon size={15} class="text-leaf" />)
-                    : (props.closeIcon ?? <FolderIcon size={15} class="text-faint" />)
-                  : (props.fileIcon ?? <FileIcon size={14} class="text-faint" />)}
+                    ? <FolderOpenIcon size={15} class="text-leaf" />
+                    : <FolderIcon size={15} class="text-faint" />
+                  : <FileIcon size={14} class="text-faint" />}
               </span>
               <span class="truncate">{row.node.name}</span>
             </button>

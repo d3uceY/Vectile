@@ -120,13 +120,6 @@ export const FileIcon = (p: IconProps) => (
   </Icon>
 );
 
-export const RefreshIcon = (p: IconProps) => (
-  <Icon {...p}>
-    <path d="M20 12a8 8 0 1 1-2.34-5.66" />
-    <path d="M20 3v4h-4" />
-  </Icon>
-);
-
 export const TrashIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 7h16" />
@@ -135,22 +128,9 @@ export const TrashIcon = (p: IconProps) => (
   </Icon>
 );
 
-export const PlusIcon = (p: IconProps) => (
-  <Icon {...p}>
-    <path d="M12 5v14M5 12h14" />
-  </Icon>
-);
-
 export const BoltIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5Z" />
-  </Icon>
-);
-
-export const LeafIcon = (p: IconProps) => (
-  <Icon {...p}>
-    <path d="M4 20c0-9 5-15 16-16-1 11-7 16-16 16Z" />
-    <path d="M4 20c4-8 9-12 13-14" />
   </Icon>
 );
 

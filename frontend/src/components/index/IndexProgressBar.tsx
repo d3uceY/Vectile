@@ -1,16 +1,11 @@
 import { Show } from "solid-js";
+import { ProgressBar } from "../ui/ProgressBar";
 
 /**
  * Inline indexing loader shown on the collection/dir row being indexed.
- *
- * The bar is driven by real per-file events (current/total) but shaped to feel
- * like a "pushing" loader:
- *  - the fill caps at 96%, so it looks like it's about to finish and holds
- *    there while the backend wraps up the last batch; the user waits instead
- *    of expecting an instant 100%;
- *  - the width transition eases from slow to fast (start → accelerate);
- *  - a leaf-green shine sweeps across the fill and a soft glow pulses
- *    underneath, all disabled under prefers-reduced-motion.
+ * Driven by real per-file events (current/total) but shaped to feel like a
+ * "pushing" loader: the fill caps at 96% and a leaf-green shine sweeps across
+ * it (see ProgressBar).
  */
 export function IndexProgressBar(props: {
   collection: string;
@@ -30,40 +25,13 @@ export function IndexProgressBar(props: {
   const preparing = () => props.total <= 0;
 
   return (
-    <div
-      class="index-progress"
-      role="progressbar"
-      aria-label={`Indexing ${props.collection}`}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={preparing() ? undefined : Math.round(pct())}
-    >
-      <div class="index-progress__track">
-        <div
-          class="index-progress__fill"
-          classList={{ "index-progress__fill--preparing": preparing() }}
-          style={{ width: preparing() ? "36%" : `${pct()}%` }}
-        >
-          <span class="index-progress__shine" aria-hidden="true" />
-        </div>
-      </div>
-      <div class="mt-1.5 flex items-center gap-2">
-        <span class="data truncate text-muted">{props.file ?? ""}</span>
-        <Show when={!preparing()}>
-          <span class="data shrink-0 text-leaf-deep">
-            {props.current}/{props.total}
-          </span>
-        </Show>
-        <Show when={props.onCancel}>
-          <button
-            type="button"
-            onClick={props.onCancel}
-            class="ml-auto inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-[11.5px] font-medium text-danger transition-colors hover:bg-danger-soft"
-          >
-            Cancel
-          </button>
-        </Show>
-      </div>
-    </div>
+    <ProgressBar label={`Indexing ${props.collection}`} percent={pct()} preparing={preparing()} onCancel={props.onCancel}>
+      <span class="data truncate text-muted">{props.file ?? ""}</span>
+      <Show when={!preparing()}>
+        <span class="data shrink-0 text-leaf-deep">
+          {props.current}/{props.total}
+        </span>
+      </Show>
+    </ProgressBar>
   );
 }

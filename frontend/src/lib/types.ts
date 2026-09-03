@@ -66,10 +66,8 @@ export interface SearchFilters {
   sourceType?: string;
   path?: string;
   sender?: string;
-  author?: string;
   dateFrom?: string;
   dateTo?: string;
-  metadataFilters?: Record<string, string>;
   topK: number;
 }
 

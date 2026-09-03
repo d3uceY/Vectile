@@ -86,7 +86,6 @@ export function SearchView() {
     store.filters().sourceType ||
     store.filters().path ||
     store.filters().sender ||
-    store.filters().author ||
     store.filters().dateFrom ||
     store.filters().dateTo;
 

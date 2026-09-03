@@ -237,6 +237,33 @@ export function Select(props: SelectProps) {
 
 /* ---------------- Toggle ---------------- */
 
+export function Switch(props: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={props.checked}
+      aria-label={props.label}
+      onClick={() => props.onChange(!props.checked)}
+      class={`relative h-6 w-10 shrink-0 rounded-full border transition-colors duration-150 ease-snappy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf/60 focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${
+        props.checked ? "border-leaf bg-leaf" : "border-line-strong bg-surface"
+      }`}
+    >
+      <span
+        class={`absolute left-0.5 top-0.5 h-4.5 w-4.5 rounded-full bg-white transition-transform duration-150 ease-snappy ${
+          props.checked ? "translate-x-4" : ""
+        }`}
+      />
+    </button>
+  );
+}
+
+/* ---------------- Toggle (labeled row) ---------------- */
+
 export function Toggle(props: {
   checked: boolean;
   onChange: (v: boolean) => void;
@@ -257,22 +284,7 @@ export function Toggle(props: {
         </span>
         {props.description && <span class="block text-[13px] text-muted">{props.description}</span>}
       </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={props.checked}
-        aria-label={props.label}
-        onClick={() => props.onChange(!props.checked)}
-        class={`relative h-6 w-10 shrink-0 rounded-full border transition-colors duration-150 ease-snappy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-leaf/60 focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${
-          props.checked ? "border-leaf bg-leaf" : "border-line-strong bg-surface"
-        }`}
-      >
-        <span
-          class={`absolute left-0.5 top-0.5 h-4.5 w-4.5 rounded-full bg-white transition-transform duration-150 ease-snappy ${
-            props.checked ? "translate-x-4" : ""
-          }`}
-        />
-      </button>
+      <Switch checked={props.checked} onChange={props.onChange} label={props.label} />
     </div>
   );
 }
@@ -346,10 +358,17 @@ export function InfoTip(props: { text: string; class?: string }) {
 
 /* ---------------- StatusPill (in-process model engine) ---------------- */
 
-const modelCopy: Record<ModelState, { label: string; dot: string; text: string }> = {
-  loaded: { label: "model loaded", dot: "bg-leaf", text: "text-leaf-deep" },
-  idle: { label: "model idle", dot: "bg-faint", text: "text-muted" },
-  failed: { label: "model failed", dot: "bg-danger", text: "text-danger" },
+/** Shared model-state → dot/text mapping, used by StatusPill and the sidebar plate. */
+export const modelStateMeta: Record<ModelState, { dot: string; text: string }> = {
+  loaded: { dot: "bg-leaf", text: "text-leaf-deep" },
+  idle: { dot: "bg-faint", text: "text-muted" },
+  failed: { dot: "bg-danger", text: "text-danger" },
+};
+
+const modelLabel: Record<ModelState, string> = {
+  loaded: "model loaded",
+  idle: "model idle",
+  failed: "model failed",
 };
 
 export function StatusPill(props: {
@@ -357,8 +376,8 @@ export function StatusPill(props: {
   name?: string;
   compact?: boolean;
 }) {
-  const m = () => modelCopy[props.state];
-  const tip = props.name ? `${m().label} · ${props.name}` : m().label;
+  const m = () => modelStateMeta[props.state];
+  const tip = props.name ? `${modelLabel[props.state]} · ${props.name}` : modelLabel[props.state];
   const dot = (
     <span class="relative flex h-2 w-2">
       <span class={`h-2 w-2 rounded-full ${m().dot} ${props.state === "loaded" ? "pulse-dot" : ""}`} />
@@ -377,7 +396,7 @@ export function StatusPill(props: {
       title={tip}
     >
       {dot}
-      <span class="data">{m().label}</span>
+      <span class="data">{modelLabel[props.state]}</span>
       {props.name && <span class="data text-muted">· {props.name}</span>}
     </span>
   );
@@ -474,6 +493,7 @@ export function ConfirmDialog(props: {
   title: string;
   body: JSX.Element;
   confirmLabel?: string;
+  cancelLabel?: string;
   busyLabel?: string;
   busy?: boolean;
   onCancel: () => void;
@@ -490,7 +510,7 @@ export function ConfirmDialog(props: {
           <div class="read mt-2 text-[13.5px] leading-5 text-muted">{props.body}</div>
           <div class="mt-4 flex justify-end gap-2">
             <Button size="sm" variant="ghost" onClick={props.onCancel} disabled={props.busy}>
-              Keep
+              {props.cancelLabel ?? "Keep"}
             </Button>
             <button
               type="button"

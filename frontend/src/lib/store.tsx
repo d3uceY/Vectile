@@ -38,7 +38,6 @@ const defaultFilters = (topK = DEFAULT_TOP_K): SearchFilters => ({
   sourceType: "",
   path: "",
   sender: "",
-  author: "",
   dateFrom: "",
   dateTo: "",
   topK,

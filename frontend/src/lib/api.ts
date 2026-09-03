@@ -31,8 +31,6 @@ const filterToBackend = (f: SearchFilters) => ({
   dateFrom: f.dateFrom ?? "",
   dateTo: f.dateTo ?? "",
   sender: f.sender ?? "",
-  author: f.author ?? "",
-  metadataFilters: f.metadataFilters ?? {},
   topK: f.topK,
 });
 
@@ -90,10 +88,6 @@ export async function setConfig(cfg: AppConfig): Promise<void> {
 
 export async function addSourcePath(kind: string, name: string, path: string): Promise<void> {
   return IndexService.AddSourcePath(kind, name, path);
-}
-
-export async function removeSourcePath(kind: string, name: string, path: string): Promise<void> {
-  return IndexService.RemoveSourcePath(kind, name, path);
 }
 
 export async function toggleCollectionEnabled(name: string, enabled: boolean): Promise<void> {

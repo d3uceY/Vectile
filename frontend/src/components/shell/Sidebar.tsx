@@ -1,6 +1,7 @@
 import { For, type JSX } from "solid-js";
 import { useAppStore } from "../../lib/store";
 import type { ModelState, ViewId } from "../../lib/types";
+import { modelStateMeta } from "../ui/primitives";
 import {
   BrowseIcon,
   IndexIcon,
@@ -25,24 +26,18 @@ const NAV: { id: ViewId; label: string; icon: (p: { size?: number }) => JSX.Elem
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
-const modelCopy: Record<ModelState, { label: string; dot: string; text: string }> = {
-  loaded: { label: "loaded", dot: "bg-leaf", text: "text-leaf-deep" },
-  idle: { label: "idle", dot: "bg-faint", text: "text-muted" },
-  failed: { label: "failed", dot: "bg-danger", text: "text-danger" },
-};
-
 /** The engine's colophon: one quiet line in the sidebar footer, left-aligned
     to match the nav. A colored dot + state word, the model id in mono, and a
     muted "local" tag. Long model names truncate instead of blowing out. */
 function ModelPlate(props: { state: ModelState; name?: string }) {
-  const m = () => modelCopy[props.state];
-  const tip = () => (props.name ? `${m().label} · ${props.name}` : m().label);
+  const m = () => modelStateMeta[props.state];
+  const tip = () => (props.name ? `${props.state} · ${props.name}` : props.state);
   return (
     <span class="flex min-w-0 items-center gap-2" title={tip()}>
       <span class="relative flex h-2 w-2 shrink-0">
         <span class={`h-2 w-2 rounded-full ${m().dot} ${props.state === "loaded" ? "pulse-dot" : ""}`} />
       </span>
-      <span class={`data shrink-0 transition-colors ${m().text}`}>{m().label}</span>
+      <span class={`data shrink-0 transition-colors ${m().text}`}>{props.state}</span>
       <span class="data min-w-0 truncate text-muted">{props.name ?? "…"}</span>
       <span class="data shrink-0 text-muted">local</span>
     </span>
@@ -114,7 +109,7 @@ export function Sidebar() {
         <div class="flex justify-center md:hidden">
           <span class="relative flex h-2 w-2 shrink-0">
             <span
-              class={`h-2 w-2 rounded-full ${modelCopy[store.modelState()].dot} ${
+              class={`h-2 w-2 rounded-full ${modelStateMeta[store.modelState()].dot} ${
                 store.modelState() === "loaded" ? "pulse-dot" : ""
               }`}
             />
