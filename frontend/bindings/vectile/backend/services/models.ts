@@ -23,7 +23,6 @@ export class CatalogModel {
     "name": string;
     "file": string;
     "url": string;
-    "sha256": string;
     "dimensions": number;
     "sizeBytes": number;
     "quantization": string;
@@ -45,9 +44,6 @@ export class CatalogModel {
         }
         if (!("url" in $$source)) {
             this["url"] = "";
-        }
-        if (!("sha256" in $$source)) {
-            this["sha256"] = "";
         }
         if (!("dimensions" in $$source)) {
             this["dimensions"] = 0;
