@@ -187,7 +187,7 @@ export function FileTree(props: {
               onKeyDown={(e) => onKeyDown(e, i())}
               class={`group relative flex w-full items-center gap-1.5 rounded-lg px-1.5 py-0.75 text-left text-[13px] transition-colors duration-100 ease-snappy ${
                 selectedId() === row.node.id
-                  ? "bg-mint text-ink"
+                  ? "bg-mint-strong text-ink"
                   : "text-ink-soft hover:bg-surface"
               } ${row.node.isSelectable === false ? "cursor-default" : "cursor-pointer"}`}
               style={{ "padding-inline-start": `${8 + row.depth * 16}px` }}

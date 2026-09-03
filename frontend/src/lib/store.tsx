@@ -348,7 +348,7 @@ export function createAppStore() {
     const res = await api.setActiveModel(path, force);
     if (!res.needsRebuild) {
       await refresh();
-      void loadModels();
+      await loadModels();
       pushToast(`Active model: ${res.model.name}`, "success");
     }
     return { needsRebuild: res.needsRebuild, name: res.model.name };

@@ -81,8 +81,8 @@ export function Sidebar() {
                   <button
                     class={`group relative flex w-full items-center justify-center gap-3 rounded-l-[9px] py-2 text-[13.5px] font-medium transition-colors duration-150 ease-snappy md:justify-start md:px-3 ${
                       active()
-                        ? "-mr-4.25 bg-mint text-leaf-deep"
-                        : "text-ink-soft hover:bg-mint hover:text-ink"
+                        ? "-mr-4.25 bg-mint-strong text-leaf-deep"
+                        : "text-ink-soft hover:bg-mint-strong hover:text-ink"
                     }`}
                     aria-current={active() ? "page" : undefined}
                     aria-label={item.label}

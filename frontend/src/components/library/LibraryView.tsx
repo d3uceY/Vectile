@@ -102,7 +102,7 @@ export function LibraryView() {
                     <div class="flex items-stretch">
                       <button
                         class={`grid flex-1 grid-cols-12 items-center gap-2 px-5 py-3.5 text-left transition-colors duration-100 ease-snappy ${
-                          isOpen() ? "bg-mint/40" : "hover:bg-surface"
+                          isOpen() ? "bg-mint-strong/50" : "hover:bg-surface"
                         }`}
                         onClick={() => toggle(c.id)}
                         aria-expanded={isOpen()}

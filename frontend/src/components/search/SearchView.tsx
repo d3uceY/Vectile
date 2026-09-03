@@ -153,19 +153,19 @@ export function SearchView() {
             label=""
             options={collectionOptions()}
             value={store.filters().collection ?? ""}
-            onChange={(e) => applyFilter({ collection: e.currentTarget.value })}
+            onChange={(v) => applyFilter({ collection: v })}
             aria-label="Filter by collection"
           />
           <Select
             options={typeOptions}
             value={store.filters().sourceType ?? ""}
-            onChange={(e) => applyFilter({ sourceType: e.currentTarget.value as SearchFilters["sourceType"] })}
+            onChange={(v) => applyFilter({ sourceType: v as SearchFilters["sourceType"] })}
             aria-label="Filter by source type"
           />
           <button
             class={`inline-flex h-8 items-center gap-1.5 rounded-control border px-3 text-[13px] transition-colors ${
               showAdvanced()
-                ? "border-leaf/50 bg-mint text-leaf-deep"
+                ? "border-leaf/50 bg-mint-strong text-leaf-deep"
                 : "border-line bg-paper text-ink-soft hover:border-line-strong"
             }`}
             onClick={() => setShowAdvanced((v) => !v)}
@@ -206,15 +206,13 @@ export function SearchView() {
               />
             </FilterField>
             <FilterField label="Results">
-              <select
-                class="h-8 w-full rounded-control border border-line bg-paper px-2 text-[13px] outline-none focus:border-leaf"
-                value={store.filters().topK}
-                onChange={(e) => applyFilter({ topK: Number(e.currentTarget.value) })}
-              >
-                {resultOptions().map((n) => (
-                  <option value={n}>{n}</option>
-                ))}
-              </select>
+              <Select
+                class="w-full"
+                options={resultOptions().map((n) => ({ value: String(n), label: String(n) }))}
+                value={String(store.filters().topK)}
+                onChange={(v) => applyFilter({ topK: Number(v) })}
+                aria-label="Results"
+              />
             </FilterField>
           </div>
         </Show>
@@ -329,7 +327,7 @@ function ResultList() {
             <button
               type="button"
               class={`h-6 rounded-full px-2.5 text-[11.5px] font-medium transition-colors duration-150 ease-snappy ${
-                store.scoreDisplay() === "rank" ? "bg-mint text-leaf-deep" : "text-muted hover:text-ink"
+                store.scoreDisplay() === "rank" ? "bg-mint-strong text-leaf-deep" : "text-muted hover:text-ink"
               }`}
               onClick={() => store.setScoreDisplay("rank")}
               aria-pressed={store.scoreDisplay() === "rank"}
@@ -339,7 +337,7 @@ function ResultList() {
             <button
               type="button"
               class={`h-6 rounded-full px-2.5 text-[11.5px] font-medium transition-colors duration-150 ease-snappy ${
-                store.scoreDisplay() === "percent" ? "bg-mint text-leaf-deep" : "text-muted hover:text-ink"
+                store.scoreDisplay() === "percent" ? "bg-mint-strong text-leaf-deep" : "text-muted hover:text-ink"
               }`}
               onClick={() => store.setScoreDisplay("percent")}
               aria-pressed={store.scoreDisplay() === "percent"}

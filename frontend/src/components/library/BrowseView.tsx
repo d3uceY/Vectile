@@ -137,8 +137,8 @@ export function BrowseView() {
     }
   });
 
-  const onLibraryChange = (e: Event & { currentTarget: HTMLSelectElement }) => {
-    const id = Number(e.currentTarget.value);
+  const onLibraryChange = (value: string) => {
+    const id = Number(value);
     setColId(Number.isFinite(id) && id > 0 ? id : null);
     setChecked(new Set<number>());
     store.setSelectedDoc(null);

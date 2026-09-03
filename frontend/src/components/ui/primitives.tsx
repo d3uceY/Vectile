@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, onCleanup, Show, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { ModelState } from "../../lib/types";
 import { ChevronDown, CloseIcon, InfoIcon } from "./icons";
@@ -21,7 +21,7 @@ export function Button(props: ButtonProps) {
       : variant === "outline"
         ? "border border-line-strong bg-paper text-ink-soft hover:border-leaf/50 hover:text-ink"
         : variant === "ghost"
-          ? "text-ink-soft hover:bg-mint hover:text-ink"
+          ? "text-ink-soft hover:bg-mint-strong hover:text-ink"
           : variant === "danger"
             ? "border border-danger/40 bg-paper text-danger hover:border-danger hover:bg-danger-soft"
             : "text-faint hover:text-ink"
@@ -75,33 +75,163 @@ export function Chip(props: {
   );
 }
 
-/* ---------------- Select (native, accessible) ---------------- */
+/* ---------------- Select (custom, accessible combobox) ---------------- */
 
 type SelectProps = {
   label?: string;
   options: { value: string; label: string }[];
   value: string;
-  onChange?: (e: Event & { currentTarget: HTMLSelectElement }) => void;
+  onChange?: (value: string) => void;
   "aria-label"?: string;
   class?: string;
 };
 
+/* A custom listbox styled to match the app's form controls. The trigger keeps
+   focus (combobox pattern) and the menu is rendered in a fixed-position portal
+   so it escapes any overflow-hidden / scrollable ancestor that would clip it.
+   Keyboard: type-ahead is omitted, but Arrow/Home/End/Enter/Space/Escape/Tab
+   all work, and the active option is reported via aria-activedescendant. */
 export function Select(props: SelectProps) {
+  const listId = createUniqueId();
+  const [open, setOpen] = createSignal(false);
+  const [activeIdx, setActiveIdx] = createSignal(-1);
+  const [rect, setRect] = createSignal<DOMRect | null>(null);
+  let trigger: HTMLButtonElement | undefined;
+  let list: HTMLUListElement | undefined;
+
+  const selected = () => props.options.find((o) => o.value === props.value);
+  const selectedLabel = () => selected()?.label ?? props.value ?? "";
+
+  const openMenu = () => {
+    if (trigger) setRect(trigger.getBoundingClientRect());
+    setActiveIdx(Math.max(0, props.options.findIndex((o) => o.value === props.value)));
+    setOpen(true);
+  };
+
+  const closeMenu = (focusTrigger = true) => {
+    setOpen(false);
+    setActiveIdx(-1);
+    if (focusTrigger) trigger?.focus();
+  };
+
+  const pick = (value: string) => {
+    props.onChange?.(value);
+    closeMenu();
+  };
+
+  const onTriggerKey = (e: KeyboardEvent) => {
+    const last = props.options.length - 1;
+    if (!open()) {
+      if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        openMenu();
+        if (e.key === "ArrowUp") setActiveIdx(last);
+      }
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMenu();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.min(last, i + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(0, i - 1));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActiveIdx(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActiveIdx(last);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      const o = props.options[activeIdx()];
+      if (o) pick(o.value);
+    } else if (e.key === "Tab") {
+      closeMenu(false);
+    }
+  };
+
+  const onDocMouseDown = (e: MouseEvent) => {
+    if (!open()) return;
+    if (trigger?.contains(e.target as Node)) return;
+    if (list?.contains(e.target as Node)) return;
+    closeMenu(false);
+  };
+
+  createEffect(() => {
+    if (open()) document.addEventListener("mousedown", onDocMouseDown);
+    else document.removeEventListener("mousedown", onDocMouseDown);
+  });
+  onCleanup(() => document.removeEventListener("mousedown", onDocMouseDown));
+
+  createEffect(() => {
+    if (!open()) return;
+    const el = list?.children[activeIdx()] as HTMLElement | undefined;
+    el?.scrollIntoView({ block: "nearest" });
+  });
+
   return (
-    <label class={`inline-flex items-center gap-2 text-[13px] text-muted ${props.class ?? ""}`}>
+    <span class={`inline-flex items-center gap-2 text-[13px] text-muted ${props.class ?? ""}`}>
       {props.label && <span class="whitespace-nowrap">{props.label}</span>}
-      <span class="relative inline-flex">
-        <select
-          value={props.value}
+      <span class="relative inline-flex min-w-0 flex-1">
+        <button
+          ref={trigger}
+          type="button"
+          class="inline-flex h-8 min-w-0 flex-1 items-center rounded-control border border-line bg-paper pl-3 pr-8 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-leaf"
           aria-label={props["aria-label"]}
-          onChange={(e) => props.onChange?.(e)}
-          class="h-8 appearance-none rounded-control border border-line bg-paper pl-3 pr-8 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-leaf"
+          aria-haspopup="listbox"
+          aria-expanded={open()}
+          aria-activedescendant={open() && activeIdx() >= 0 ? `${listId}-option-${activeIdx()}` : undefined}
+          onClick={openMenu}
+          onKeyDown={onTriggerKey}
         >
-          <For each={props.options}>{(o) => <option value={o.value}>{o.label}</option>}</For>
-        </select>
+          <span class="min-w-0 truncate">{selectedLabel()}</span>
+        </button>
         <ChevronDown size={14} class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-faint" />
       </span>
-    </label>
+      <Show when={open()}>
+        <Portal>
+          <ul
+            ref={list}
+            role="listbox"
+            class="scroll-quiet fixed z-50 max-h-56 overflow-y-auto rounded-control border border-line bg-paper py-1 shadow-pop"
+            style={
+              {
+                top: `${(rect()?.bottom ?? 0) + 4}px`,
+                left: `${rect()?.left ?? 0}px`,
+                minWidth: `${rect()?.width ?? 0}px`,
+              } as JSX.CSSProperties
+            }
+          >
+            <For each={props.options}>
+              {(o, i) => (
+                <li
+                  id={`${listId}-option-${i()}`}
+                  role="option"
+                  aria-selected={o.value === props.value}
+                  class={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-[13px] ${
+                    i() === activeIdx()
+                      ? "bg-mint-strong text-ink"
+                      : o.value === props.value
+                        ? "text-ink"
+                        : "text-ink-soft"
+                  }`}
+                  onMouseEnter={() => setActiveIdx(i())}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    pick(o.value);
+                  }}
+                >
+                  <span class="min-w-0 truncate">{o.label}</span>
+                </li>
+              )}
+            </For>
+          </ul>
+        </Portal>
+      </Show>
+    </span>
   );
 }
 
@@ -344,6 +474,7 @@ export function ConfirmDialog(props: {
   title: string;
   body: JSX.Element;
   confirmLabel?: string;
+  busyLabel?: string;
   busy?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -367,7 +498,7 @@ export function ConfirmDialog(props: {
               disabled={props.busy}
               class="inline-flex h-8 select-none items-center justify-center gap-2 rounded-control bg-danger px-3 text-[13px] font-medium text-white transition-all duration-150 ease-snappy active:scale-[0.98] disabled:opacity-45 disabled:pointer-events-none"
             >
-              {props.busy ? "Deleting…" : (props.confirmLabel ?? "Delete")}
+              {props.busy ? (props.busyLabel ?? "Deleting…") : (props.confirmLabel ?? "Delete")}
             </button>
           </div>
         </div>

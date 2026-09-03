@@ -835,9 +835,14 @@ export function SettingsView() {
   // pending (dimension-changing) selection can be previewed in the dropdown but
   // snaps back to the previous model if the user cancels the switch.
   const [selModel, setSelModel] = createSignal("");
+  // True while a switch request is in flight or a dim-change confirm is pending.
+  // The sync below is gated on it so a model-list refresh (the model:changed /
+  // download-complete handlers call loadModels) can't clobber a previewed
+  // selection and snap the dropdown back to the current model mid-switch.
+  const [switchBusy, setSwitchBusy] = createSignal(false);
   createEffect(() => {
     const m = activeModel();
-    if (m) setSelModel(m.path);
+    if (m && !switchBusy() && confirmDim() === null) setSelModel(m.path);
   });
 
   // Total logical cores: the ceiling for the CPU-threads slider. Falls back to
@@ -865,13 +870,17 @@ export function SettingsView() {
 
   const switchModel = async (path: string) => {
     if (path === activeModel()?.path) return;
+    setSwitchBusy(true);
     setSelModel(path); // preview the pending choice in the dropdown
     try {
       const r = await store.setActiveModel(path);
       if (r.needsRebuild) setConfirmDim({ path, name: r.name });
       else setSelModel(activeModel()?.path ?? ""); // applied; resync from the store
-    } catch {
+    } catch (err) {
       setSelModel(activeModel()?.path ?? ""); // rejected; revert the dropdown
+      store.pushToast(`Couldn't switch model: ${err}`, "danger");
+    } finally {
+      setSwitchBusy(false);
     }
   };
 
@@ -882,8 +891,9 @@ export function SettingsView() {
     try {
       await store.setActiveModel(c.path, true);
       setConfirmDim(null);
-    } catch {
+    } catch (err) {
       setSelModel(activeModel()?.path ?? ""); // failed; revert the dropdown
+      store.pushToast(`Couldn't switch model: ${err}`, "danger");
     } finally {
       setConfirmBusy(false);
     }
@@ -994,7 +1004,7 @@ export function SettingsView() {
                 aria-label="Active model"
                 value={selModel()}
                 options={store.models().map((m) => ({ value: m.path, label: modelLabel(m) }))}
-                onChange={(e) => void switchModel(e.currentTarget.value)}
+                onChange={(v) => void switchModel(v)}
               />
             </div>
 
@@ -1102,6 +1112,7 @@ export function SettingsView() {
                 </>
               }
               confirmLabel="Switch & re-index"
+              busyLabel="Switching…"
               busy={confirmBusy()}
               onCancel={() => {
                 setConfirmDim(null);
