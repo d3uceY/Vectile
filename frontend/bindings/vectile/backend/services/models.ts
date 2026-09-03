@@ -13,6 +13,77 @@ import * as db$0 from "../db/models.js";
 import * as embeddings$0 from "../embeddings/models.js";
 
 /**
+ * CatalogModel is one pre-approved embedding model vectile can fetch for the
+ * user. Each carries the SHA-256 verified after download so a corrupted or
+ * tampered file is never loaded, plus a link out to the upstream page for
+ * users who prefer to read about or inspect it.
+ */
+export class CatalogModel {
+    "key": string;
+    "name": string;
+    "file": string;
+    "url": string;
+    "sha256": string;
+    "dimensions": number;
+    "sizeBytes": number;
+    "quantization": string;
+    "language": string;
+    "recommended": boolean;
+    "description": string;
+    "hfUrl": string;
+
+    /** Creates a new CatalogModel instance. */
+    constructor($$source: Partial<CatalogModel> = {}) {
+        if (!("key" in $$source)) {
+            this["key"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("file" in $$source)) {
+            this["file"] = "";
+        }
+        if (!("url" in $$source)) {
+            this["url"] = "";
+        }
+        if (!("sha256" in $$source)) {
+            this["sha256"] = "";
+        }
+        if (!("dimensions" in $$source)) {
+            this["dimensions"] = 0;
+        }
+        if (!("sizeBytes" in $$source)) {
+            this["sizeBytes"] = 0;
+        }
+        if (!("quantization" in $$source)) {
+            this["quantization"] = "";
+        }
+        if (!("language" in $$source)) {
+            this["language"] = "";
+        }
+        if (!("recommended" in $$source)) {
+            this["recommended"] = false;
+        }
+        if (!("description" in $$source)) {
+            this["description"] = "";
+        }
+        if (!("hfUrl" in $$source)) {
+            this["hfUrl"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CatalogModel instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CatalogModel {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CatalogModel($$parsedSource as Partial<CatalogModel>);
+    }
+}
+
+/**
  * Collection is a library collection with counts and enabled state.
  * NeedsReindex is true when the collection has indexed documents but no
  * embeddings — typically right after switching to a model with a different
@@ -197,6 +268,59 @@ export class IndexState {
             $$parsedSource["collections"] = $$createField2_0($$parsedSource["collections"]);
         }
         return new IndexState($$parsedSource as Partial<IndexState>);
+    }
+}
+
+/**
+ * ModelDownloadState is a snapshot of the active download, returned by
+ * GetDownloadState so a reloading frontend can rebuild its progress UI.
+ */
+export class ModelDownloadState {
+    "active": boolean;
+    "key": string;
+    "status": string;
+    "downloaded": number;
+    "total": number;
+    "percent": number;
+    "speed": number;
+    "error": string;
+
+    /** Creates a new ModelDownloadState instance. */
+    constructor($$source: Partial<ModelDownloadState> = {}) {
+        if (!("active" in $$source)) {
+            this["active"] = false;
+        }
+        if (!("key" in $$source)) {
+            this["key"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("downloaded" in $$source)) {
+            this["downloaded"] = 0;
+        }
+        if (!("total" in $$source)) {
+            this["total"] = 0;
+        }
+        if (!("percent" in $$source)) {
+            this["percent"] = 0;
+        }
+        if (!("speed" in $$source)) {
+            this["speed"] = 0;
+        }
+        if (!("error" in $$source)) {
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ModelDownloadState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ModelDownloadState {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ModelDownloadState($$parsedSource as Partial<ModelDownloadState>);
     }
 }
 

@@ -6,7 +6,7 @@ import { ChevronDown, CloseIcon, InfoIcon } from "./icons";
 /* ---------------- Button ---------------- */
 
 type ButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "outline" | "ghost" | "quiet";
+  variant?: "primary" | "outline" | "ghost" | "quiet" | "danger";
   size?: "sm" | "md";
 };
 
@@ -21,8 +21,10 @@ export function Button(props: ButtonProps) {
       : variant === "outline"
         ? "border border-line-strong bg-paper text-ink-soft hover:border-leaf/50 hover:text-ink"
         : variant === "ghost"
-          ? "text-muted hover:bg-surface hover:text-ink"
-          : "text-faint hover:text-ink"
+          ? "text-ink-soft hover:bg-mint hover:text-ink"
+          : variant === "danger"
+            ? "border border-danger/40 bg-paper text-danger hover:border-danger hover:bg-danger-soft"
+            : "text-faint hover:text-ink"
   } ${props.class ?? ""}`;
   return (
     <button

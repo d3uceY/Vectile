@@ -4,6 +4,9 @@ import { importModel, pickFolder, pickModelFile } from "../../lib/api";
 import type { AppConfig, GUIConfig, MascotConfig, MCPConfig, ModelInfo, SearchDefaults } from "../../lib/types";
 import { Button, ConfirmDialog, InfoTip, Select, StatusPill, Toggle, ViewHeading } from "../ui/primitives";
 import { CheckIcon, CloseIcon, CodeIcon, CopyIcon, FileIcon, FolderOpenIcon, LibraryIcon, PlugIcon, SlashIcon } from "../ui/icons";
+import { DownloadProgressBar } from "../ui/DownloadProgressBar";
+import { openExternal } from "../../lib/update";
+import { baseName, fmtBytes } from "../../lib/format";
 
 /* ---- hard bounds for numeric settings ----
    Every numeric field is clamped to these ranges on load and on change, and
@@ -925,6 +928,66 @@ export function SettingsView() {
               {store.status()?.modelPath ?? "…"}
             </div>
 
+            <div class="rounded-control border border-line bg-paper/60 p-3">
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <p class="text-[13px] font-medium text-ink-soft">Get a model</p>
+                <button
+                  type="button"
+                  class="text-[12px] font-medium text-leaf hover:underline"
+                  onClick={() => openExternal("https://huggingface.co/models?library=gguf&sort=trending&search=embedding")}
+                >
+                  Browse Hugging Face
+                </button>
+              </div>
+              <div class="space-y-2">
+                <For each={store.recommended()}>{(m) => {
+                  const installed = store.models().some((x) => baseName(x.path) === m.file);
+                  return (
+                    <div class="rounded-control border border-line bg-paper p-2.5">
+                      <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                          <p class="flex items-center gap-1.5 text-[13px] font-medium text-ink">
+                            {m.name}
+                            <Show when={m.recommended}>
+                              <span class="rounded-control bg-mint px-1.5 py-0.5 text-[10.5px] font-medium text-leaf-deep">recommended</span>
+                            </Show>
+                          </p>
+                          <p class="data mt-0.5 text-muted">
+                            {m.dimensions} dims · {fmtBytes(m.sizeBytes)} · {m.quantization}
+                          </p>
+                          <p class="mt-0.5 text-[12.5px] text-faint">{m.description}</p>
+                        </div>
+                        <Show when={store.downloadState()?.key !== m.key}>
+                          <Show when={!installed} fallback={
+                            <div class="flex items-center gap-2">
+                              <span class="rounded-control bg-mint px-1.5 py-0.5 text-[10.5px] font-medium text-leaf-deep">installed</span>
+                              <Button size="sm" variant="danger" onClick={() => store.uninstallCatalogFile(m.file)}>Uninstall</Button>
+                            </div>
+                          }>
+                            <Button size="sm" onClick={() => store.downloadModelByKey(m.key)}>Download</Button>
+                          </Show>
+                        </Show>
+                      </div>
+                      <Show when={store.downloadState()?.key === m.key}>
+                        <div class="mt-2">
+                          <DownloadProgressBar
+                            progress={{
+                              key: m.key,
+                              downloaded: store.downloadState()!.downloaded,
+                              total: store.downloadState()!.total,
+                              percent: store.downloadState()!.percent,
+                              speed: store.downloadState()!.speed,
+                            }}
+                            onCancel={() => store.cancelDownload()}
+                          />
+                        </div>
+                      </Show>
+                    </div>
+                  );
+                }}</For>
+              </div>
+            </div>
+
             <div class="flex items-center justify-between gap-4">
               <span class="text-[13.5px] text-ink-soft">Active model</span>
               <Select
@@ -944,7 +1007,7 @@ export function SettingsView() {
 
             <Show when={activeModel()}>
               {(m) => (
-                <div class="rounded-control border border-line bg-paper/60 p-3">
+                <div class="rounded-control border border-line bg-paper p-3">
                   <p class="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-ink-soft">
                     {m().name} settings
                     <InfoTip text="Each model carries its own settings. Context window 0 falls back to the model's native maximum (shown here when the .gguf reports one); threads 0 uses all cores." />

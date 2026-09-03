@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 
 	"vectile/backend/config"
 	"vectile/backend/embeddings"
@@ -18,10 +19,11 @@ var Version = "dev"
 
 // Core holds the shared runtime state for all services.
 type Core struct {
-	Cfg      *config.Config
-	CfgPath  string
-	Embedder *embeddings.Embedder
-	App      *application.App
+	Cfg           *config.Config
+	CfgPath       string
+	Embedder      *embeddings.Embedder
+	App           *application.App
+	Notifications *notifications.NotificationService
 
 	indexMu  sync.Mutex // serializes index/prune runs
 	indexing bool
@@ -67,6 +69,26 @@ func (c *Core) cancelIndex() bool {
 	}
 	c.cancel()
 	return true
+}
+
+// sendNotification fires a native desktop notification through the Wails
+// notifications service. No-op when the service isn't wired up (tests) or the
+// platform rejects the call.
+func (c *Core) sendNotification(id, title, body string) {
+	if c.Notifications == nil {
+		return
+	}
+	_ = c.Notifications.SendNotification(notifications.NotificationOptions{
+		ID: id, Title: title, Body: body,
+	})
+}
+
+// isAllRun reports whether the active index run is an "Index all" pass, so a
+// single-collection run only notifies once.
+func (c *Core) isAllRun() bool {
+	c.progressMu.Lock()
+	defer c.progressMu.Unlock()
+	return c.allRun
 }
 
 // Status is the app-wide status summary shown in the UI.

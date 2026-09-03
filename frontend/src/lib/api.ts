@@ -10,10 +10,12 @@ import * as ModelService from "../../bindings/vectile/backend/services/modelserv
 import * as SearchService from "../../bindings/vectile/backend/services/searchservice";
 import type {
   AppConfig,
+  CatalogModel,
   Collection,
   Document,
   IndexState,
   MCPStatus,
+  ModelDownloadState,
   ModelInfo,
   SearchFilters,
   SearchResult,
@@ -176,6 +178,26 @@ export async function updateModelSettings(
   threads: number,
 ): Promise<void> {
   await ModelService.UpdateModelSettings(id, contextWindow, batchSize, threads);
+}
+
+/** The curated catalog of models the app can download directly. */
+export async function listRecommendedModels(): Promise<CatalogModel[]> {
+  return ModelService.ListRecommendedModels() as unknown as CatalogModel[];
+}
+
+/** Starts a background model download; true when it started. */
+export async function downloadModel(key: string): Promise<boolean> {
+  return ModelService.DownloadModel(key) as unknown as boolean;
+}
+
+/** Cancels the in-flight model download, if any. */
+export async function cancelModelDownload(): Promise<boolean> {
+  return ModelService.CancelModelDownload() as unknown as boolean;
+}
+
+/** Snapshot of the active download so a reloading frontend can rebuild the bar. */
+export async function getDownloadState(): Promise<ModelDownloadState> {
+  return ModelService.GetDownloadState() as unknown as ModelDownloadState;
 }
 
 /**

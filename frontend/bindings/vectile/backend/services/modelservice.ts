@@ -32,6 +32,13 @@ export function ApplyActiveModel(): $CancellablePromise<void> {
 }
 
 /**
+ * CancelModelDownload cancels the in-flight model download, if any.
+ */
+export function CancelModelDownload(): $CancellablePromise<boolean> {
+    return $Call.ByID(3373660950);
+}
+
+/**
  * DeleteModel removes a model from the table and, when the file lives in the
  * models/ folder, deletes the file too so the folder scan doesn't re-add it.
  * The active model cannot be deleted.
@@ -41,13 +48,35 @@ export function DeleteModel(path: string): $CancellablePromise<void> {
 }
 
 /**
+ * DownloadModel starts a background download of a catalog model: HTTP fetch,
+ * SHA-256 verify, GGUF embedding check, then register + activate. Returns
+ * whether the download started (false when one is already running, an index
+ * run is in flight, or the model is already installed). Progress arrives as
+ * model:download-progress events; completion/failure as model:download-complete
+ * / model:download-failed.
+ */
+export function DownloadModel(key: string): $CancellablePromise<boolean> {
+    return $Call.ByID(3567360488, key);
+}
+
+/**
+ * GetDownloadState returns a snapshot of the active download so a reloading
+ * frontend can rebuild its progress UI; live updates still arrive as events.
+ */
+export function GetDownloadState(): $CancellablePromise<$models.ModelDownloadState> {
+    return $Call.ByID(1292897846).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
  * ImportModel copies a .gguf into the models/ folder and registers it. The
  * file is copied so the app owns it and the model survives the original
  * being moved or deleted. It is not auto-activated; the user picks it.
  */
 export function ImportModel(srcPath: string): $CancellablePromise<db$0.Model> {
     return $Call.ByID(3637578651, srcPath).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType1($result);
     });
 }
 
@@ -58,7 +87,17 @@ export function ImportModel(srcPath: string): $CancellablePromise<db$0.Model> {
  */
 export function ListModels(): $CancellablePromise<db$0.Model[]> {
     return $Call.ByID(4184755701).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
+    });
+}
+
+/**
+ * ListRecommendedModels returns the curated catalog of models the app can
+ * download directly.
+ */
+export function ListRecommendedModels(): $CancellablePromise<$models.CatalogModel[]> {
+    return $Call.ByID(2741288292).then(($result: any) => {
+        return $$createType4($result);
     });
 }
 
@@ -70,7 +109,7 @@ export function ListModels(): $CancellablePromise<db$0.Model[]> {
  */
 export function SetActiveModel(path: string, force: boolean): $CancellablePromise<$models.SetActiveResult> {
     return $Call.ByID(859586252, path, force).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType5($result);
     });
 }
 
@@ -84,6 +123,9 @@ export function UpdateModelSettings(id: number, contextWindow: number, batchSize
 }
 
 // Private type creation functions
-const $$createType0 = db$0.Model.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = $models.SetActiveResult.createFrom;
+const $$createType0 = $models.ModelDownloadState.createFrom;
+const $$createType1 = db$0.Model.createFrom;
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $models.CatalogModel.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = $models.SetActiveResult.createFrom;

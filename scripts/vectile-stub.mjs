@@ -30,6 +30,10 @@ const M = {
   SetActiveModel: 859586252,
   DeleteModel: 3374659369,
   UpdateModelSettings: 2688418022,
+  ListRecommendedModels: 2741288292,
+  DownloadModel: 3567360488,
+  CancelModelDownload: 3373660950,
+  GetDownloadState: 1292897846,
   GetMCPStatus: 2163182986,
   StartServer: 4062741143,
   StopServer: 2204354075,
@@ -91,6 +95,14 @@ let models = [
   { id: 1, name: "bge-m3-Q4_K_M", path: MODEL_PATH, dimensions: 1024, contextWindow: 2048, batchSize: 32, threads: 0, isActive: true, created: "2026-08-24" },
   { id: 2, name: "mxbai-embed-large", path: "C:\\Users\\you\\AppData\\Roaming\\vectile\\models\\mxbai-embed-large.gguf", dimensions: 1024, contextWindow: 2048, batchSize: 32, threads: 0, isActive: false, created: "2026-08-24" },
 ];
+
+const recommendedModels = [
+  { key: "bge-small-en-v1.5-q8_0", name: "BGE Small EN v1.5", file: "bge-small-en-v1.5-q8_0.gguf", url: "", sha256: "", dimensions: 384, sizeBytes: 36700000, quantization: "Q8_0", language: "English", recommended: true, description: "Best quality for the size.", hfUrl: "https://huggingface.co/ggml-org/bge-small-en-v1.5-Q8_0-GGUF" },
+  { key: "bge-small-en-v1.5-q4_k_m", name: "BGE Small EN v1.5", file: "bge-small-en-v1.5-q4_k_m.gguf", url: "", sha256: "", dimensions: 384, sizeBytes: 24800000, quantization: "Q4_K_M", language: "English", recommended: false, description: "Smallest of the English options.", hfUrl: "https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf" },
+  { key: "bge-m3-q4_k_m", name: "BGE-M3", file: "bge-m3-Q4_K_M.gguf", url: "", sha256: "", dimensions: 1024, sizeBytes: 438000000, quantization: "Q4_K_M", language: "Multilingual", recommended: false, description: "Best semantic quality.", hfUrl: "https://huggingface.co/lm-kit/bge-m3-gguf" },
+];
+
+let downloadState = { active: false, key: "", status: "", downloaded: 0, total: 0, percent: 0, speed: 0, error: "" };
 
 // ---------------------------------------------------------------------------
 // Collections -> sources -> documents
@@ -350,6 +362,18 @@ export async function stub(request) {
       }
       return { body: true };
     }
+    case M.ListRecommendedModels:
+      return { body: recommendedModels };
+    case M.GetDownloadState:
+      return { body: downloadState };
+    case M.DownloadModel: {
+      const key = post.args?.args?.[0] ?? "";
+      downloadState = { active: true, key, status: "downloading", downloaded: 0, total: 36700000, percent: 0, speed: 0, error: "" };
+      return { body: true };
+    }
+    case M.CancelModelDownload:
+      downloadState = { active: false, key: downloadState.key, status: "cancelled", downloaded: 0, total: 0, percent: 0, speed: 0, error: "" };
+      return { body: true };
     case M.DeleteSource: {
       const sourceId = post.args?.args?.[0];
       const s = sources.find((x) => x.id === sourceId);

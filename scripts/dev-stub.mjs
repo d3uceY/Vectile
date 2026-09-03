@@ -159,9 +159,74 @@ const indexSimPlugin = {
   },
 };
 
+// Drives the model download bar in the browser: watches the DownloadModel
+// method ID and emits model:download-progress ticks ending in
+// model:download-complete, or a cancel when CancelModelDownload is hit.
+const downloadSimPlugin = {
+  name: "vectile-download-sim",
+  transformIndexHtml() {
+    return [
+      {
+        tag: "script",
+        attrs: { type: "module" },
+        children: `(() => {
+  const DOWNLOAD = 3567360488;
+  const CANCEL_DL = 3373660950;
+
+  let sim = null;
+
+  const boot = () => {
+    if (!(window._wails && window._wails.dispatchWailsEvent)) {
+      setTimeout(boot, 20);
+      return;
+    }
+    const emit = (name, data) => window._wails.dispatchWailsEvent({ name, data });
+    const stop = () => { if (sim) { clearInterval(sim.timer); sim = null; } };
+
+    const start = (key) => {
+      stop();
+      const total = 36700000;
+      let downloaded = 0;
+      sim = { key, total, timer: null };
+      sim.timer = setInterval(() => {
+        downloaded = Math.min(total, downloaded + total * 0.06);
+        emit("model:download-progress", {
+          key, downloaded, total,
+          percent: (downloaded / total) * 100,
+          speed: 12.4 * 1024 * 1024,
+        });
+        if (downloaded >= total) {
+          stop();
+          emit("model:download-complete", { key });
+        }
+      }, 120);
+    };
+
+    const origFetch = window.fetch.bind(window);
+    window.fetch = async (url, opts) => {
+      try {
+        if (String(url).indexOf("/wails/runtime") !== -1 && opts && opts.method === "POST") {
+          const body = JSON.parse(opts.body || "{}");
+          const args = body && body.args;
+          const mid = args && args.methodID;
+          if (mid === DOWNLOAD) start(args.args && args.args[0]);
+          else if (mid === CANCEL_DL) stop();
+        }
+      } catch (_) {}
+      return origFetch(url, opts);
+    };
+  };
+
+  boot();
+})();`,
+      },
+    ];
+  },
+};
+
 process.chdir(frontendRoot);
 const server = await createServer({
-  plugins: [stubPlugin, indexSimPlugin],
+  plugins: [stubPlugin, indexSimPlugin, downloadSimPlugin],
   server: { port: 9255, strictPort: false },
 });
 

@@ -1,8 +1,10 @@
 import { createContext, createSignal, onCleanup, onMount, useContext, type JSX } from "solid-js";
 import { Events } from "@wailsio/runtime";
 import * as api from "./api";
+import { baseName } from "./format";
 import type {
   AppConfig,
+  CatalogModel,
   Collection,
   Document,
   IndexCancelled,
@@ -11,6 +13,9 @@ import type {
   IndexProgress,
   IndexState,
   MCPStatus,
+  ModelDownloadError,
+  ModelDownloadProgress,
+  ModelDownloadState,
   ModelInfo,
   ModelState,
   SearchFilters,
@@ -102,6 +107,13 @@ export function createAppStore() {
   const [collections, setCollections] = createSignal<Collection[]>([]);
   const [config, setConfig] = createSignal<AppConfig | null>(null);
   const [models, setModels] = createSignal<ModelInfo[]>([]);
+
+  // Model download (in-app): catalog + live download state + onboarding dialog.
+  const [recommended, setRecommended] = createSignal<CatalogModel[]>([]);
+  const [downloadState, setDownloadState] = createSignal<ModelDownloadState | null>(null);
+  const [modelDialogOpen, setModelDialogOpen] = createSignal(false);
+  // Dismissing lasts only this session, so a fresh launch with no model asks again.
+  const [modelDialogDismissed, setModelDialogDismissed] = createSignal(false);
 
   // Live state of the in-app MCP server (running / port / URL). Seeded on
   // mount and updated by the mcp:status event the backend emits on start/stop.
@@ -367,6 +379,67 @@ export function createAppStore() {
     }
   };
 
+  const loadRecommended = async () => {
+    try {
+      setRecommended(await api.listRecommendedModels());
+    } catch {
+      /* backend not ready yet */
+    }
+  };
+
+  const downloadModelByKey = async (key: string) => {
+    try {
+      const started = await api.downloadModel(key);
+      if (!started) pushToast("A download is already running", "neutral");
+    } catch (err) {
+      pushToast(`Download failed: ${err}`, "danger");
+    }
+  };
+
+  const cancelDownload = async () => {
+    try {
+      await api.cancelModelDownload();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const importModelFile = async () => {
+    const p = await api.pickModelFile();
+    if (!p) return;
+    try {
+      await api.importModel(p);
+      await loadModels();
+      await refresh();
+      setModelDialogOpen(false);
+      pushToast("Model imported", "success");
+    } catch (err) {
+      pushToast(`Import failed: ${err}`, "danger");
+    }
+  };
+
+  const closeModelDialog = () => {
+    setModelDialogOpen(false);
+    setModelDialogDismissed(true);
+  };
+
+  // Uninstall a catalog model by its filename (matches the installed row).
+  const uninstallCatalogFile = async (file: string) => {
+    const m = models().find((x) => baseName(x.path) === file);
+    if (m) await deleteModel(m.path, m.name);
+  };
+
+  // Seed the download bar after a reload so a mid-download state isn't lost.
+  const hydrateDownload = async () => {
+    try {
+      const st = await api.getDownloadState();
+      if (!st || typeof st !== "object" || typeof (st as { active?: unknown }).active !== "boolean") return;
+      setDownloadState(st as ModelDownloadState);
+    } catch {
+      /* backend not ready yet */
+    }
+  };
+
 
   // Index view actions. The backend reports whether a run actually started;
   // "indexing" is only set on a confirmed start so a rejected request (another
@@ -598,6 +671,30 @@ export function createAppStore() {
   const offMCP = Events.On("mcp:status", (ev) => {
     setMCPStatus(ev.data as MCPStatus);
   });
+  const offDlProgress = Events.On("model:download-progress", (ev) => {
+    const d = ev.data as ModelDownloadProgress;
+    setDownloadState({
+      active: true, key: d.key, status: "downloading",
+      downloaded: d.downloaded, total: d.total, percent: d.percent, speed: d.speed, error: "",
+    });
+  });
+  const offDlComplete = Events.On("model:download-complete", (ev) => {
+    const m = ev.data as ModelInfo;
+    pushToast(`Model ready: ${m?.name ?? "Embedding model"}`, "success");
+    void loadModels();
+    void refresh();
+    setDownloadState(null);
+    setModelDialogOpen(false);
+  });
+  const offDlFailed = Events.On("model:download-failed", (ev) => {
+    const e = ev.data as ModelDownloadError;
+    pushToast(`Download failed: ${e.message}`, "danger");
+    setDownloadState(null);
+  });
+  const offDlCancelled = Events.On("model:download-cancelled", () => {
+    pushToast("Download cancelled", "neutral");
+    setDownloadState(null);
+  });
 
   // A freshly loaded frontend has no idea the backend is mid-index (events
   // emitted before it subscribed are lost), so on mount we ask the backend for
@@ -626,10 +723,16 @@ export function createAppStore() {
   onMount(() => {
     void refresh();
     void loadConfig();
-    void loadModels();
+    void loadRecommended();
     void hydrateIndexing();
+    void hydrateDownload();
     void loadCPUCount();
     void refreshMCP();
+    // Ask about a model only when there really is none installed.
+    void (async () => {
+      await loadModels();
+      if (models().length === 0 && !modelDialogDismissed()) setModelDialogOpen(true);
+    })();
   });
   onCleanup(() => {
     offProgress();
@@ -640,6 +743,10 @@ export function createAppStore() {
     offPruned();
     offModelChanged();
     offMCP();
+    offDlProgress();
+    offDlComplete();
+    offDlFailed();
+    offDlCancelled();
   });
 
   return {
@@ -651,6 +758,14 @@ export function createAppStore() {
     collections,
     config,
     models,
+    recommended,
+    downloadState,
+    modelDialogOpen,
+    closeModelDialog,
+    downloadModelByKey,
+    cancelDownload,
+    importModelFile,
+    uninstallCatalogFile,
     mcpStatus,
     refreshMCP,
     loadModels,

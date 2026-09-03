@@ -13,10 +13,12 @@ export {
 };
 
 export {
+    CatalogModel,
     Collection,
     Document,
     IndexFileProgress,
     IndexState,
+    ModelDownloadState,
     SetActiveResult,
     Source,
     Status

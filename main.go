@@ -7,6 +7,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 
 	"vectile/backend/appdata"
 	"vectile/backend/config"
@@ -55,6 +56,10 @@ func main() {
 	// when the user has enabled it in Settings. Binds to 127.0.0.1 only.
 	mcpSvc := mcp.NewMCPService(core)
 
+	// Native desktop notifications (model download + indexing finished).
+	notifier := notifications.New()
+	core.Notifications = notifier
+
 	app := application.New(application.Options{
 		Name:        "vectile",
 		Description: "A local, private search across everything you've written, read, and kept.",
@@ -64,6 +69,7 @@ func main() {
 			application.NewService(services.NewIndexService(core)),
 			application.NewService(services.NewModelService(core)),
 			application.NewService(mcpSvc),
+			application.NewService(notifier),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -75,6 +81,10 @@ func main() {
 		},
 	})
 	core.App = app
+
+	// Ask for notification permission once (no-op on Windows/Linux; on macOS
+	// this prompts the user). Best-effort: a rejection never blocks launch.
+	_, _ = notifier.RequestNotificationAuthorization()
 
 	if cfg.GUI.StartOnLogin {
 		if enabled, _ := startup.IsEnabled(); !enabled {

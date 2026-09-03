@@ -5,6 +5,7 @@ import { fetchLatestRelease, isDesktop, isNewer } from "../../lib/update";
 import { DotPattern } from "../ui/patterns";
 import { ToastStack } from "../ui/primitives";
 import { UpdateDialog } from "../ui/UpdateDialog";
+import { ModelDownloadDialog } from "../ui/ModelDownloadDialog";
 import { Sidebar } from "./Sidebar";
 import { StatusStrip } from "./StatusStrip";
 import { SearchView } from "../search/SearchView";
@@ -83,6 +84,18 @@ export function AppShell() {
         latest={updateInfo()?.latest ?? ""}
         current={updateInfo()?.current ?? ""}
         onDismiss={() => setUpdateInfo(null)}
+      />
+
+      <ModelDownloadDialog
+        open={store.modelDialogOpen()}
+        recommended={store.recommended()}
+        downloadState={store.downloadState()}
+        installedModels={store.models()}
+        onDownload={(k) => store.downloadModelByKey(k)}
+        onUninstall={(f) => store.uninstallCatalogFile(f)}
+        onCancel={() => store.cancelDownload()}
+        onImport={() => store.importModelFile()}
+        onDismiss={() => store.closeModelDialog()}
       />
 
       <ToastStack toasts={store.toasts()} onDismiss={(id) => store.dismissToast(id)} />

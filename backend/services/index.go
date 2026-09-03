@@ -129,6 +129,7 @@ func (s *IndexService) IndexAll(force bool) (bool, error) {
 		// cancellation): the frontend reloads the library exactly once here
 		// instead of once per collection.
 		s.core.App.Event.Emit("indexing:all-done", nil)
+		s.core.sendNotification("index-all", "Indexing finished", "All collections indexed")
 		s.core.clearIndexRun()
 	}()
 	return true, nil
@@ -363,6 +364,12 @@ func (s *IndexService) runIndex(ctx context.Context, name string, force bool) {
 		Errors:     result.Errors,
 		Messages:   result.ErrorMessages,
 	})
+	// A single-collection run notifies here; an Index All notifies once at
+	// indexing:all-done below.
+	if !s.core.isAllRun() && s.core.App != nil {
+		s.core.sendNotification("index-"+name, "Indexing finished",
+			fmt.Sprintf("Indexed %s · %d new", name, result.Indexed))
+	}
 	s.core.clearIndexProgress(name)
 }
 

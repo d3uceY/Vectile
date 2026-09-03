@@ -203,3 +203,46 @@ export interface SetActiveResult {
   needsRebuild: boolean;
   model: ModelInfo;
 }
+
+/** Mirrors services.CatalogModel: one model offered for in-app download. */
+export interface CatalogModel {
+  key: string;
+  name: string;
+  file: string;
+  url: string;
+  sha256: string;
+  dimensions: number;
+  sizeBytes: number;
+  quantization: string;
+  language: string;
+  recommended: boolean;
+  description: string;
+  hfUrl: string;
+}
+
+/** Mirrors services.ModelDownloadProgress; emitted during a download. */
+export interface ModelDownloadProgress {
+  key: string;
+  downloaded: number;
+  total: number;
+  percent: number;
+  speed: number;
+}
+
+/** Mirrors services.ModelDownloadState: snapshot from getDownloadState(). */
+export interface ModelDownloadState {
+  active: boolean;
+  key: string;
+  status: "" | "downloading" | "done" | "failed" | "cancelled";
+  downloaded: number;
+  total: number;
+  percent: number;
+  speed: number;
+  error: string;
+}
+
+/** Mirrors services.ModelDownloadError; emitted when a download fails. */
+export interface ModelDownloadError {
+  key: string;
+  message: string;
+}

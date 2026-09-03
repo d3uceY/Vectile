@@ -102,6 +102,14 @@ func ClearActiveModel(conn *sql.DB) error {
 	return err
 }
 
+// CountEmbeddings returns how many documents have embeddings, so model
+// activation can tell whether rebuilding the vector tables would lose data.
+func CountEmbeddings(conn *sql.DB) (int, error) {
+	var n int
+	err := conn.QueryRow(`SELECT COUNT(*) FROM vec_documents`).Scan(&n)
+	return n, err
+}
+
 // DeleteModelByPath removes a model row. Returns whether a row was removed.
 func DeleteModelByPath(conn *sql.DB, path string) (bool, error) {
 	res, err := conn.Exec(`DELETE FROM models WHERE path = ?`, path)

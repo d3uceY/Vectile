@@ -57,6 +57,9 @@ func (s *ModelService) ImportModel(srcPath string) (db.Model, error) {
 	if err != nil {
 		return db.Model{}, fmt.Errorf("read model metadata: %w", err)
 	}
+	if dims <= 0 {
+		return db.Model{}, fmt.Errorf("not an embedding model: no embedding dimension in the GGUF metadata")
+	}
 	dest, err := copyIntoModels(srcPath)
 	if err != nil {
 		return db.Model{}, err
@@ -242,6 +245,12 @@ func (s *ModelService) syncModelsFromFolder() (added, removed int, err error) {
 	if err != nil {
 		return 0, 0, fmt.Errorf("read models dir: %w", err)
 	}
+	// Remove partial downloads left by a crash mid-download.
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".part") {
+			_ = os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
 	seen := make(map[string]bool, len(entries))
 	for _, e := range entries {
 		if e.IsDir() || !strings.EqualFold(filepath.Ext(e.Name()), ".gguf") {
@@ -250,6 +259,9 @@ func (s *ModelService) syncModelsFromFolder() (added, removed int, err error) {
 		p := filepath.Join(dir, e.Name())
 		seen[p] = true
 		dims, context, _ := embeddings.ReadMetadata(p)
+		if dims <= 0 {
+			continue // not a text-embedding model; leave it out of the list
+		}
 		if _, err := db.UpsertModel(db.DB, db.Model{
 			Name:          strings.TrimSuffix(e.Name(), filepath.Ext(e.Name())),
 			Path:          p,
