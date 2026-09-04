@@ -12,11 +12,6 @@ function Highlighted(props: { text: string; terms: string[] }) {
   const parts = () => {
     if (!props.terms.length) return [{ text: props.text, hit: false }];
     const re = new RegExp(`(${props.terms.map(escapeRe).join("|")})`, "ig");
-    // split() puts matched terms at odd indices but also injects empty
-    // strings (before the first match, after the last, between adjacent
-    // matches). Compute the hit flag from the original index FIRST, then
-    // drop the empties; otherwise filtering first shifts every index by
-    // one and the highlight lands on the wrong text.
     return props.text
       .split(re)
       .map((p, i) => ({ text: p, hit: i % 2 === 1 }))

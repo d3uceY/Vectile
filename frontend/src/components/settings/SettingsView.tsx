@@ -657,10 +657,8 @@ const sanitizeConfig = (cfg: AppConfig): AppConfig => {
     STATIC_BOUNDS.auto_reindex_interval_minutes.min,
     STATIC_BOUNDS.auto_reindex_interval_minutes.max,
   );
-  // The MCP block is absent from configs saved by older builds; default it.
   cfg.mcp = cfg.mcp ?? { enabled: false, port: 31123 };
   cfg.mcp.port = clamp(cfg.mcp.port, STATIC_BOUNDS.mcp_port.min, STATIC_BOUNDS.mcp_port.max);
-  // The mascot block is absent from configs saved by older builds; default it.
   cfg.gui.mascot = cfg.gui.mascot ?? { ...DEFAULT_MASCOT };
   return cfg;
 };
@@ -668,14 +666,8 @@ const sanitizeConfig = (cfg: AppConfig): AppConfig => {
 export function SettingsView() {
   const store = useAppStore();
 
-  // The draft lives in the store (not here) so unsaved edits survive leaving
-  // the page. They're kept in memory, and the leave dialog below decides
-  // whether they get saved or dropped.
   const draft = (): AppConfig | null => store.settingsDraft();
 
-  // Initialize the draft once from the loaded config, clamping any out-of-range
-  // values a hand-edited config.json may have carried. Runs again only when no
-  // draft is in memory (e.g. after the user discarded one).
   createEffect(() => {
     const c = store.config();
     if (c && !store.settingsDraft()) store.replaceSettingsDraft(sanitizeConfig(cloneCfg(c)));
@@ -688,7 +680,6 @@ export function SettingsView() {
     store.setSettingsDraft((d) => {
       if (!d) return d;
       if (k === "chunk_size_tokens") {
-        // Shrinking the chunk size must pull overlap back below it.
         const size = clamp(n, STATIC_BOUNDS.chunk_size_tokens.min, STATIC_BOUNDS.chunk_size_tokens.max);
         const overlap = clamp(
           d.chunk_overlap_tokens,
@@ -743,9 +734,6 @@ export function SettingsView() {
       return { ...d, gui };
     });
 
-  // Vexter (sidebar mascot) display settings. setMascot(s) flips one state;
-  // setMascotAll(v) is the master switch — it turns every state on/off, so
-  // "Disable Vexter" (checked) hides the mascot for all three moments.
   const setMascot = (k: keyof MascotConfig, v: boolean) =>
     store.setSettingsDraft((d) => {
       if (!d) return d;
@@ -764,8 +752,6 @@ export function SettingsView() {
     return m ? !m.show_searching && !m.show_indexing && !m.show_nothing : false;
   };
 
-  // MCP server settings. Start/stop happen on save (saveSettings reconciles
-  // the running server with the draft); this only edits the draft.
   const setMCP = (p: Partial<MCPConfig>) =>
     store.setSettingsDraft((d) => {
       if (!d) return d;
@@ -776,9 +762,6 @@ export function SettingsView() {
       return { ...d, mcp };
     });
 
-  // Live MCP server state from the backend (seeded on mount, kept fresh by
-  // mcp:status events). The URL shown in the setup directions is built from
-  // the draft port so it reflects what a save will use.
   const running = () => store.mcpStatus()?.running ?? false;
   const mcpUrl = () => `http://127.0.0.1:${draft()!.mcp.port}/sse`;
   const claudeJson = () => `{\n  "mcpServers": {\n    "vectile": { "url": "${mcpUrl()}" }\n  }\n}`;
@@ -795,8 +778,6 @@ export function SettingsView() {
     await store.saveSettings();
   };
 
-  // Used by the leave dialog: persist the draft, then complete the held
-  // navigation (confirmLeave clears the dirty flag and switches the view).
   const saveAndLeave = async () => {
     await store.saveSettings();
     store.confirmLeave();
@@ -804,28 +785,17 @@ export function SettingsView() {
 
   /* ---- Model library (independent of the config draft) ---- */
 
-  // The active model from the backend's installed-models list.
   const activeModel = (): ModelInfo | null => store.models().find((m) => m.isActive) ?? null;
 
-  // What the Active-model dropdown shows. Kept separate from activeModel() so a
-  // pending (dimension-changing) selection can be previewed in the dropdown but
-  // snaps back to the previous model if the user cancels the switch.
   const [selModel, setSelModel] = createSignal("");
-  // True while a switch request is in flight or a dim-change confirm is pending.
-  // The sync below is gated on it so a model-list refresh (the model:changed /
-  // download-complete handlers call loadModels) can't clobber a previewed
-  // selection and snap the dropdown back to the current model mid-switch.
   const [switchBusy, setSwitchBusy] = createSignal(false);
   createEffect(() => {
     const m = activeModel();
     if (m && !switchBusy() && confirmDim() === null) setSelModel(m.path);
   });
 
-  // Total logical cores: the ceiling for the CPU-threads slider. Falls back to
-  // 64 until the backend answers (slow start / dev stub).
   const cpuCount = (): number => (store.cpuCount() > 0 ? store.cpuCount() : 64);
 
-  // Per-model settings form for the active model.
   const [modelCtx, setModelCtx] = createSignal(0);
   const [modelBatch, setModelBatch] = createSignal(32);
   const [modelThreads, setModelThreads] = createSignal(0);
@@ -838,7 +808,6 @@ export function SettingsView() {
     }
   });
 
-  // Pending dimension-change switch, awaiting the destructive-confirm dialog.
   const [confirmDim, setConfirmDim] = createSignal<{ path: string; name: string } | null>(null);
   const [confirmBusy, setConfirmBusy] = createSignal(false);
 

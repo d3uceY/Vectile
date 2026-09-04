@@ -16,9 +16,6 @@ export function SetupTour() {
     let timer = 0;
     if (localStorage.getItem(SEEN_KEY)) return;
 
-    // Wait for the store's initial refresh to populate status/collections so
-    // we can tell a fresh install (nothing indexed) from a slow backend. If
-    // the backend hasn't answered, we don't start and simply retry next launch.
     timer = window.setTimeout(() => {
       if (localStorage.getItem(SEEN_KEY)) return;
       if (store.status() === null) return;
@@ -33,8 +30,6 @@ export function SetupTour() {
 
   const start = () => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // Land on Settings first so step 1's target exists; later steps switch
-    // views from their own onNextClick handlers.
     store.setView("settings");
 
     const tour = driver({
@@ -98,9 +93,6 @@ export function SetupTour() {
             description:
               "Ask anything you half-remember. Cmd/Ctrl+K focuses this box from anywhere.",
             doneBtnText: "Done",
-            // Close explicitly so onDestroyed (which marks the tour seen)
-            // always fires, regardless of driver.js's internal last-step
-            // handling.
             onDoneClick: (_el, _step, opts) => opts.driver.destroy(),
           },
         },

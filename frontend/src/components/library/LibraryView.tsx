@@ -31,9 +31,6 @@ export function LibraryView() {
     if (next !== null) void store.loadSources(id);
   };
 
-  // Confirmation state for deleting a collection or a source. The whole row
-  // toggles expansion, so the delete affordance is a sibling button, not a
-  // nested one.
   const [confirm, setConfirm] = createSignal<
     | { kind: "collection"; id: number; name: string; type: string; chunks: number }
     | { kind: "source"; id: number; name: string; path: string; chunks: number }

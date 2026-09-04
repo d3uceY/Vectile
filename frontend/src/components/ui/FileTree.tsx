@@ -43,11 +43,6 @@ export function FileTree(props: {
     new Set(props.initialExpandedItems ?? []),
   );
 
-  // <For> keys rows by object identity, so reusing the same Row object for a
-  // node that stays visible lets Solid keep that node's DOM (focus and the
-  // tree's scroll position survive an expand/collapse). Recreating every Row
-  // on each toggle rebuilt the whole tree, which dropped focus and reset the
-  // scroll container to the top, so the browse view looked like it refreshed.
   const rowById = new Map<string, Row>();
 
   const visible = createMemo<Row[]>(() => {

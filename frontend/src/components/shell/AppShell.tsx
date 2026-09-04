@@ -31,8 +31,6 @@ export function AppShell() {
     onCleanup(() => window.removeEventListener("keydown", onKey));
   });
 
-  // Version + update check: once per launch, desktop only, stable releases
-  // only (a beta/rc latest release never triggers the dialog; see isNewer).
   onMount(() => {
     void (async () => {
       const v = await api.getVersion().catch(() => null);
@@ -46,8 +44,6 @@ export function AppShell() {
 
   return (
     <div class="relative flex h-full overflow-hidden bg-paper text-ink">
-      {/* Film-grain ground: the noise texture behind the content, quiet and
-          never over the sidebar (which paints above it) */}
       <div class="pointer-events-none absolute inset-0 text-ink/10">
         <NoiseTexture />
       </div>

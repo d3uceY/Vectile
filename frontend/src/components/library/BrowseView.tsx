@@ -13,11 +13,6 @@ import {
 import { BrowseIcon, TrashIcon } from "../ui/icons";
 import { GridPattern } from "../ui/patterns";
 
-// Tree node ids must be unique across the whole tree, but collection/source/
-// document ids each autoincrement from 1, so a source folder "1" used to
-// collide with the collection folder "1" and collapsing one collapsed its
-// same-id parent too. Prefix each namespace; the prefix is internal to the
-// tree only.
 const cid = (n: number) => `c-${n}`; // collection folder
 const sid = (n: number) => `s-${n}`; // source folder
 const did = (n: number) => `d-${n}`; // document (file)
@@ -26,10 +21,7 @@ export function BrowseView() {
   const store = useAppStore();
   const [loaded, setLoaded] = createSignal(false);
 
-  // The library (collection) being browsed. A memo falls back to the first
-  // collection, and an effect lands on the first one that has chunks.
   const [colId, setColId] = createSignal<number | null>(null);
-  // Chunk ids checked for a bulk delete.
   const [checked, setChecked] = createSignal<Set<number>>(new Set());
 
   const collection = createMemo(
@@ -85,9 +77,6 @@ export function BrowseView() {
   };
 
   // --- bulk chunk selection --------------------------------------------
-  // Checkboxes sit on the tree's leaf (chunk) rows. Toggling one must not
-  // also open the chunk, so the FileTree stops propagation on the checkbox.
-
   const nChecked = () => checked().size;
 
   const toggleCheck = (tid: string, node: TreeViewElement) => {
@@ -112,8 +101,6 @@ export function BrowseView() {
 
   const clearChecked = () => setChecked(new Set<number>());
 
-  // Drop checks that point at chunks that no longer exist (after a reload or
-  // a delete) so the count never includes ghosts.
   createEffect(() => {
     const live = new Set(libraryDocs().map((d) => d.id));
     setChecked((prev) => {
@@ -127,7 +114,6 @@ export function BrowseView() {
     });
   });
 
-  // Land on the first library that has chunks, once.
   createEffect(() => {
     if (colId() === null) {
       const first = store
@@ -169,7 +155,6 @@ export function BrowseView() {
     setConfirm(null);
     setChecked(new Set<number>());
     if (t.kind === "library") {
-      // collections() is still the stale list here, so skip the one removed.
       const next = store.collections().find((c) => c.name !== t.name);
       setColId(next ? next.id : null);
       store.setSelectedDoc(null);

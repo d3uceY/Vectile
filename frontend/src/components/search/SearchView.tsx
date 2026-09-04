@@ -19,12 +19,6 @@ const typeOptions = [
   { value: "rss", label: "RSS" },
 ];
 
-// Each committed query pays for a full bge-m3 embedding (CPU, serialized in
-// the backend) plus a vector + FTS pass, so we only fire once the user has
-// actually paused typing. 150ms suits cheap text search; with an embedding
-// in the hot path a shorter window would burn one on every intermediate
-// prefix ("r" → "ru" → "rus" …). 350ms is the natural "finished typing"
-// pause, and still feels instant because the backend work is the slow part.
 const SEARCH_DEBOUNCE_MS = 350;
 
 export function SearchView() {
@@ -32,9 +26,6 @@ export function SearchView() {
   const [value, setValue] = createSignal<string>(store.query());
   const [showAdvanced, setShowAdvanced] = createSignal(false);
   const [debounce, setDebounce] = createSignal<number | null>(null);
-  // Separate debounce for the free-text filter fields (path/sender/author):
-  // each keystroke used to fire a full embedding-backed search, which felt
-  // like the filter wasn't searching at all.
   const [filterDebounce, setFilterDebounce] = createSignal<number | null>(null);
 
   const collectionOptions = () => [
@@ -52,15 +43,12 @@ export function SearchView() {
 
   const applyFilter = (patch: Partial<SearchFilters>, debounced = false) => {
     const next = { ...store.filters(), ...patch };
-    // Drop any pending query-typing debounce so a filter change isn't
-    // immediately overwritten by a redundant duplicate search.
     window.clearTimeout(debounce() ?? undefined);
     if (!debounced) {
       window.clearTimeout(filterDebounce() ?? undefined);
       store.runSearch(value(), next);
       return;
     }
-    // Free-text filters search once the user pauses typing.
     window.clearTimeout(filterDebounce() ?? undefined);
     setFilterDebounce(
       window.setTimeout(() => store.runSearch(value(), next), SEARCH_DEBOUNCE_MS),
@@ -89,9 +77,6 @@ export function SearchView() {
     store.filters().dateFrom ||
     store.filters().dateTo;
 
-  // Stale-library hint: fires once the most recent index is a day old and
-  // auto-reindex is off, so "I added a note and search can't find it" isn't
-  // a silent failure.
   const freshnessDays = () => {
     const last = store.status()?.lastIndexed;
     return last ? daysSince(last) : null;
@@ -102,8 +87,6 @@ export function SearchView() {
     store.config()?.gui.auto_reindex === false &&
     !store.indexing();
 
-  // The configured default result count (Settings → search_defaults.top_k) may
-  // not be one of the fixed presets, so surface it as its own option.
   const resultOptions = () => {
     const opts = new Set([8, 12, 24, 48]);
     opts.add(store.filters().topK);

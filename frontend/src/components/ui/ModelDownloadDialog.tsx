@@ -20,7 +20,6 @@ export function ModelDownloadDialog(props: {
   onImport: () => void;
   onDismiss: () => void;
 }) {
-  // A catalog model is installed when an installed model shares its filename.
   return (
     <Show when={props.open}>
       <div

@@ -17,11 +17,9 @@ export function IndexProgressBar(props: {
   const pct = () => {
     if (props.total <= 0) return 0;
     const raw = (props.current / props.total) * 100;
-    return Math.min(96, Math.round(raw * 10) / 10); // hold at 96% until complete
+    return Math.min(96, Math.round(raw * 10) / 10); 
   };
 
-  // total <= 0 means the run just started and hasn't counted its first file
-  // yet, so show an indeterminate "Preparing…" state rather than a stalled 0/0.
   const preparing = () => props.total <= 0;
 
   return (

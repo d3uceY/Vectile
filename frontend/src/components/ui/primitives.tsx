@@ -271,10 +271,6 @@ export function Toggle(props: {
   description?: string;
   hint?: string;
 }) {
-  // A role="switch" button, not a hidden checkbox in a <label>: clicking it
-  // must not make the browser scroll-into-view a 1px sr-only input (that was
-  // scrolling the page to the bottom of long settings lists). Button keeps
-  // keyboard (Tab + Space) and screen-reader (switch) support.
   return (
     <div class="flex items-center justify-between gap-4 py-1">
       <span>
@@ -290,12 +286,6 @@ export function Toggle(props: {
 }
 
 /* ---------------- InfoTip (hover explanation) ---------------- */
-
-// A small info icon that opens a floating explanation on hover or keyboard
-// focus. Rendered through a portal to <body> so it isn't clipped by the
-// settings list's scroll container, and it repositions itself above the icon
-// when there isn't room below. A short delay stops it flickering while the
-// pointer is just passing through a row.
 export function InfoTip(props: { text: string; class?: string }) {
   let ref: HTMLButtonElement | undefined;
   const [pos, setPos] = createSignal<{ x: number; y: number } | null>(null);
